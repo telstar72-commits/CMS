@@ -90,19 +90,40 @@
 <div class="wrap">
   <header>
     <h1>Cash Flow Monitoring System</h1>
-    <div class="subtitle">엑셀 파일을 올리면 총수주금액 · 수금대기 · 수금완료 · 현 미수금을 자동 집계합니다</div>
+    <div class="subtitle">파일 1개 = 현황 분석 · 파일 2개 = 기간 수금액 비교 (이전 → 최근)</div>
   </header>
 
   <label class="drop" id="drop" for="file">
     <div>📊 <strong>엑셀 파일을 선택</strong>하거나 여기로 끌어다 놓으세요</div>
-    <div class="hint">.xlsx / .xls / .csv — 파일은 서버로 전송되지 않고 브라우저에서만 분석됩니다</div>
-    <input type="file" id="file" accept=".xlsx,.xls,.csv">
+    <div class="hint">.xlsx / .xls / .csv — 두 시점 파일을 함께 올리면 그 사이 수금된 금액을 계산합니다. 파일은 서버로 전송되지 않고 브라우저에서만 분석됩니다.</div>
+    <input type="file" id="file" accept=".xlsx,.xls,.csv" multiple>
     <div class="filename" id="filename"></div>
   </label>
 
   <div id="error" class="err hidden"></div>
 
+  <div id="compare" class="hidden">
+    <section>
+      <div class="sec-title">기간 수금액 <span id="cmp-label" style="font-weight:600;color:var(--sub);font-size:12px;margin-left:8px"></span></div>
+      <div class="cards" style="grid-template-columns:1fr">
+        <div class="card done">
+          <div class="label">이 기간에 수금된 금액 <small>(세금계산서 발행칸에서 빠진 금액)</small></div>
+          <div class="value" id="cmp-total" style="font-size:26px">-</div>
+        </div>
+      </div>
+      <div class="chart-box" style="height:300px;margin-top:14px"><canvas id="cmpChart"></canvas></div>
+      <div class="table-box" style="margin-top:14px">
+        <table id="cmp-table">
+          <thead><tr><th>고객사</th><th>기간 수금액</th></tr></thead>
+          <tbody></tbody>
+          <tfoot></tfoot>
+        </table>
+      </div>
+    </section>
+  </div>
+
   <div id="result" class="hidden">
+    <div class="sec-title" style="margin-bottom:12px">현황 <span style="font-weight:600;color:var(--sub);font-size:12px;margin-left:8px">최근 파일 기준</span></div>
     <div class="cards">
       <div class="card total"><div class="label">총수주금액</div><div class="value" id="v-total">-</div></div>
       <div class="card wait"><div class="label">수금대기 <small>(세금계산서 발행)</small></div><div class="value" id="v-wait">-</div></div>
@@ -137,6 +158,6 @@
   <div id="placeholder" class="empty">아직 업로드된 파일이 없습니다.</div>
 </div>
 
-<script src="app.js"></script>
+<script src="app2.js"></script>
 </body>
 </html>
