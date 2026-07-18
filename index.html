@@ -39,6 +39,13 @@
   .drop .hint{font-size:12px; color:var(--sub); margin-top:6px}
   #file{display:none}
   .filename{font-size:13px; color:var(--sub); margin-top:10px}
+  .filelist{margin-top:14px; background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px 16px}
+  .filelist .fl-head{font-size:12px; font-weight:700; color:var(--accent); margin-bottom:8px}
+  .filelist .fl-row{display:flex; align-items:center; gap:8px; font-size:13px; padding:5px 0}
+  .filelist .fl-name{color:var(--ink); word-break:break-all}
+  .badge{font-size:11px; font-weight:700; padding:2px 8px; border-radius:20px; white-space:nowrap}
+  .badge.prev{background:#eef2f7; color:#5a6b7c}
+  .badge.curr{background:#dcfce7; color:#15803d}
 
   .cards{
     display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-top:24px;
@@ -99,6 +106,8 @@
     <input type="file" id="file" accept=".xlsx,.xls,.csv" multiple>
     <div class="filename" id="filename"></div>
   </label>
+
+  <div id="filelist" class="filelist hidden"></div>
 
   <div id="error" class="err hidden"></div>
 

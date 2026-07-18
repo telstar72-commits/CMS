@@ -237,8 +237,19 @@ function readXlsx(file) {
 async function handleFiles(fileList) {
   errBox.classList.add("hidden");
   const files = Array.from(fileList).sort((a, b) => fileOrder(a.name) - fileOrder(b.name));
-  document.getElementById("filename").innerHTML =
-    files.map(f => "📄 " + f.name).join("<br>");
+
+  // 업로드된 파일 리스트 표시 (개수 + 이전/최근 라벨)
+  const listEl = document.getElementById("filelist");
+  const roleLabel = (i) => {
+    if (files.length < 2) return "";
+    if (i === 0) return `<span class="badge prev">이전 시점</span>`;
+    if (i === files.length - 1) return `<span class="badge curr">최근 시점</span>`;
+    return "";
+  };
+  listEl.innerHTML =
+    `<div class="fl-head">인식된 파일 ${files.length}개</div>` +
+    files.map((f, i) => `<div class="fl-row">📄 <span class="fl-name">${f.name}</span> ${roleLabel(i)}</div>`).join("");
+  listEl.classList.remove("hidden");
 
   try {
     const parsed = await Promise.all(files.map(readXlsx));
