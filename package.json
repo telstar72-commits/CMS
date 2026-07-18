@@ -1,12 +1,6 @@
 {
-  "name": "susu-app",
+  "name": "cms",
   "version": "1.0.0",
-  "description": "수주·수금 분석 웹앱",
-  "main": "server.js",
-  "scripts": {
-    "start": "node server.js"
-  },
-  "engines": {
-    "node": ">=18"
-  }
+  "description": "Cash Flow Monitoring System",
+  "private": true
 }
