@@ -109,6 +109,19 @@
 
   <div id="filelist" class="filelist hidden"></div>
 
+  <div id="history" class="hidden">
+    <section>
+      <div class="sec-title">월별 수금 추이 <span id="hist-status" style="font-weight:600;color:var(--sub);font-size:12px;margin-left:8px"></span></div>
+      <div class="chart-box" style="height:360px"><canvas id="histChart"></canvas></div>
+      <div class="table-box" style="margin-top:14px">
+        <table id="hist-table">
+          <thead><tr><th>월</th><th>그 달 수금액</th><th>누적 수금완료</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
   <div id="error" class="err hidden"></div>
 
   <div id="compare" class="hidden">

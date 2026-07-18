@@ -1,5 +1,11 @@
 /* ===== Cash Flow Monitoring System ===== */
 
+// GitHub 저장소 설정: 이 폴더에 매달 엑셀을 올리면 월별 히스토리로 자동 집계됩니다
+const GH_OWNER = "telstar72-commits";
+const GH_REPO = "CMS";
+const GH_BRANCH = "main";
+const GH_DATA_DIR = "data"; // 저장소 안에 만들 폴더명
+
 // 컬럼 이름 유연 매칭
 const COL = {
   customer: ["고객사"],
@@ -275,3 +281,112 @@ fileInput.addEventListener("change", e => { if (e.target.files.length) handleFil
 ["dragenter", "dragover"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add("over"); }));
 ["dragleave", "drop"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove("over"); }));
 drop.addEventListener("drop", e => { if (e.dataTransfer.files.length) handleFiles(e.dataTransfer.files); });
+
+/* ===== 월별 히스토리 (GitHub data 폴더 자동 집계) ===== */
+
+// 파일명에서 월키(YYYY-MM) 추출. 예: _260715_ → 2026-07
+function monthKey(name) {
+  const m = name.match(/(\d{2})(\d{2})(\d{2})/);
+  if (!m) return null;
+  return `20${m[1]}-${m[2]}`;
+}
+function fileSortNum(name) {
+  const m = name.match(/(\d{6,8})/);
+  return m ? parseInt(m[1]) : 0;
+}
+
+let histChart;
+
+async function loadHistory() {
+  const statusEl = document.getElementById("hist-status");
+  const box = document.getElementById("history");
+  try {
+    // 1) GitHub data 폴더의 파일 목록 읽기 (공개 저장소, 인증 불필요)
+    const api = `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${GH_DATA_DIR}?ref=${GH_BRANCH}`;
+    const res = await fetch(api);
+    if (!res.ok) {
+      // 폴더가 아직 없으면 조용히 숨김 (404) — 안내만
+      if (res.status === 404) {
+        box.classList.add("hidden");
+        return;
+      }
+      throw new Error("GitHub 응답 오류 " + res.status);
+    }
+    const items = await res.json();
+    const excelFiles = items.filter(f => f.type === "file" && /\.(xlsx|xls|csv)$/i.test(f.name));
+    if (excelFiles.length === 0) { box.classList.add("hidden"); return; }
+
+    box.classList.remove("hidden");
+    statusEl.textContent = `${excelFiles.length}개 파일 불러오는 중...`;
+
+    // 2) 각 파일 다운로드 + 파싱
+    const parsedAll = [];
+    for (const f of excelFiles) {
+      const dl = await fetch(f.download_url);
+      const buf = await dl.arrayBuffer();
+      const wb = XLSX.read(buf, { type: "array", cellDates: true });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "", raw: true });
+      parsedAll.push({ name: f.name, mkey: monthKey(f.name), snum: fileSortNum(f.name), data: parseFile(rows) });
+    }
+
+    // 3) 월별 그룹 → 각 달 최신(마지막) 파일 대표
+    const byMonth = {};
+    for (const p of parsedAll) {
+      if (!p.mkey) continue;
+      (byMonth[p.mkey] ||= []).push(p);
+    }
+    const months = Object.keys(byMonth).sort();
+    for (const k of months) byMonth[k].sort((a, b) => a.snum - b.snum);
+
+    // 4) 월별 추이 계산: 막대=그달 새 수금(직전달 대표 대비 발행칸에서 빠진 금액), 선=누적 수금완료
+    const rows = [];
+    let prevRep = null;
+    for (const k of months) {
+      const rep = byMonth[k][byMonth[k].length - 1].data;
+      const monthReceived = prevRep ? compare(prevRep, rep).total : rep.totals.done;
+      rows.push({ month: k, received: monthReceived, cumDone: rep.totals.done });
+      prevRep = rep;
+    }
+
+    renderHistory(rows, byMonth);
+    statusEl.textContent = `${months.length}개월 · 파일 ${excelFiles.length}개`;
+  } catch (err) {
+    statusEl.textContent = "히스토리를 불러오지 못했습니다: " + (err.message || err);
+  }
+}
+
+function renderHistory(rows, byMonth) {
+  const labels = rows.map(r => r.month);
+  const bar = rows.map(r => r.received);
+  const line = rows.map(r => r.cumDone);
+
+  if (histChart) histChart.destroy();
+  histChart = new Chart(document.getElementById("histChart"), {
+    data: {
+      labels,
+      datasets: [
+        { type: "bar", label: "그 달 수금액", data: bar, backgroundColor: "#16a34a", yAxisID: "y", order: 2 },
+        { type: "line", label: "누적 수금완료", data: line, borderColor: "#2563eb", backgroundColor: "#2563eb",
+          tension: 0.3, yAxisID: "y", order: 1, pointRadius: 4 },
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { position: "top", labels: { font: { size: 12 } } },
+        tooltip: { callbacks: { label: c => c.dataset.label + ": " + won(c.parsed.y) } }
+      },
+      scales: { y: { ticks: { callback: v => "₩" + (v / 1e8).toFixed(1) + "억" } } }
+    }
+  });
+
+  // 월별 표
+  const tbody = document.querySelector("#hist-table tbody");
+  tbody.innerHTML = rows.map(r =>
+    `<tr><td>${r.month}</td><td class="num-done">${won(r.received)}</td><td class="num-total">${won(r.cumDone)}</td></tr>`
+  ).join("");
+}
+
+// 페이지 로드 시 자동으로 히스토리 불러오기
+loadHistory();
