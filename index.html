@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cash Flow Monitoring System</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root{
+    --ink:#1a2b3c;
+    --sub:#5a6b7c;
+    --line:#e2e8ee;
+    --bg:#f6f8fa;
+    --card:#ffffff;
+    --total:#2563eb;
+    --wait:#d97706;
+    --done:#16a34a;
+    --unpaid:#dc2626;
+    --accent:#0f4c81;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Malgun Gothic","맑은 고딕",sans-serif;
+    background:var(--bg); color:var(--ink); line-height:1.5;
+  }
+  .wrap{max-width:1200px; margin:0 auto; padding:24px 20px 80px}
+  header{margin-bottom:24px}
+  h1{font-size:22px; font-weight:800; letter-spacing:-0.02em}
+  .subtitle{color:var(--sub); font-size:13px; margin-top:4px}
+
+  .drop{
+    margin-top:20px; border:2px dashed var(--line); border-radius:14px;
+    background:var(--card); padding:36px 24px; text-align:center; cursor:pointer;
+    transition:.15s;
+  }
+  .drop:hover,.drop.over{border-color:var(--accent); background:#f0f6fb}
+  .drop strong{color:var(--accent)}
+  .drop .hint{font-size:12px; color:var(--sub); margin-top:6px}
+  #file{display:none}
+  .filename{font-size:13px; color:var(--sub); margin-top:10px}
+
+  .cards{
+    display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-top:24px;
+  }
+  .card{
+    background:var(--card); border:1px solid var(--line); border-radius:14px;
+    padding:18px 18px 16px; position:relative; overflow:hidden;
+  }
+  .card::before{content:""; position:absolute; left:0; top:0; bottom:0; width:4px}
+  .card.total::before{background:var(--total)}
+  .card.wait::before{background:var(--wait)}
+  .card.done::before{background:var(--done)}
+  .card.unpaid::before{background:var(--unpaid)}
+  .card .label{font-size:12.5px; color:var(--sub); font-weight:600}
+  .card .value{font-size:22px; font-weight:800; margin-top:8px; letter-spacing:-0.02em}
+  .card .value small{font-size:13px; font-weight:600; color:var(--sub); margin-left:2px}
+
+  section{margin-top:32px}
+  .sec-title{font-size:15px; font-weight:800; margin-bottom:12px; display:flex; align-items:center; gap:8px}
+  .sec-title::before{content:""; width:4px; height:16px; background:var(--accent); border-radius:2px}
+
+  .chart-box{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px; height:360px}
+
+  .table-box{background:var(--card); border:1px solid var(--line); border-radius:14px; overflow:auto}
+  table{width:100%; border-collapse:collapse; font-size:13px; min-width:640px}
+  th,td{padding:11px 14px; text-align:right; white-space:nowrap}
+  th{background:#f0f4f8; color:var(--sub); font-weight:700; font-size:12px; position:sticky; top:0}
+  th:first-child,td:first-child{text-align:left; font-weight:600}
+  tbody tr{border-top:1px solid var(--line)}
+  tbody tr:hover{background:#f8fafc}
+  tfoot td{border-top:2px solid var(--ink); font-weight:800; background:#f0f4f8}
+  .num-total{color:var(--total)}
+  .num-wait{color:var(--wait)}
+  .num-done{color:var(--done)}
+  .num-unpaid{color:var(--unpaid)}
+
+  .empty{color:var(--sub); text-align:center; padding:40px; font-size:14px}
+  .hidden{display:none}
+  .err{background:#fef2f2; border:1px solid #fecaca; color:#b91c1c; padding:12px 16px; border-radius:10px; margin-top:16px; font-size:13px}
+
+  @media(max-width:760px){
+    .cards{grid-template-columns:repeat(2,1fr)}
+    .card .value{font-size:19px}
+    .wrap{padding:16px 14px 60px}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Cash Flow Monitoring System</h1>
+    <div class="subtitle">엑셀 파일을 올리면 총수주금액 · 수금대기 · 수금완료 · 현 미수금을 자동 집계합니다</div>
+  </header>
+
+  <label class="drop" id="drop" for="file">
+    <div>📊 <strong>엑셀 파일을 선택</strong>하거나 여기로 끌어다 놓으세요</div>
+    <div class="hint">.xlsx / .xls / .csv — 파일은 서버로 전송되지 않고 브라우저에서만 분석됩니다</div>
+    <input type="file" id="file" accept=".xlsx,.xls,.csv">
+    <div class="filename" id="filename"></div>
+  </label>
+
+  <div id="error" class="err hidden"></div>
+
+  <div id="result" class="hidden">
+    <div class="cards">
+      <div class="card total"><div class="label">총수주금액</div><div class="value" id="v-total">-</div></div>
+      <div class="card wait"><div class="label">수금대기 <small>(세금계산서 발행)</small></div><div class="value" id="v-wait">-</div></div>
+      <div class="card done"><div class="label">수금완료 <small>(수금액 합계)</small></div><div class="value" id="v-done">-</div></div>
+      <div class="card unpaid"><div class="label">현 미수금 <small>(미결제TC)</small></div><div class="value" id="v-unpaid">-</div></div>
+    </div>
+
+    <section>
+      <div class="sec-title">고객사별 분석</div>
+      <div class="chart-box"><canvas id="chart"></canvas></div>
+    </section>
+
+    <section>
+      <div class="table-box">
+        <table id="table">
+          <thead>
+            <tr>
+              <th>고객사</th>
+              <th>총수주금액</th>
+              <th>수금대기</th>
+              <th>수금완료</th>
+              <th>현 미수금</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+          <tfoot></tfoot>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <div id="placeholder" class="empty">아직 업로드된 파일이 없습니다.</div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,12 @@
+{
+  "name": "susu-app",
+  "version": "1.0.0",
+  "description": "수주·수금 분석 웹앱",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
