@@ -39,14 +39,15 @@ function findHeaderRow(rows) {
   return 0;
 }
 
-// 값에 실제 날짜가 들어있는지 판정
+// 세금계산서발행 칸에 값(날짜/텍스트)이 채워져 있는지 판정
+// 비어있지 않고, 단순 대시("-")나 공백만 아니면 '발행됨'으로 본다
 function hasDate(v) {
-  if (v === null || v === undefined || v === "") return false;
+  if (v === null || v === undefined) return false;
   if (v instanceof Date) return true;
-  if (typeof v === "number" && v > 1000) return true; // 엑셀 날짜 시리얼
+  if (typeof v === "number") return v !== 0; // 0이 아닌 숫자(날짜 시리얼 등)
   const s = String(v).trim();
-  if (!s || s === "-") return false;
-  return /\d{4}[-./]\d{1,2}|\d{1,2}[-./]\d{1,2}/.test(s);
+  if (!s || s === "-" || s === "–" || s === "—") return false;
+  return true; // 그 외 어떤 텍스트/날짜든 값이 있으면 수금대기로 집계
 }
 
 // 숫자 파싱 (₩, 콤마, 공백 제거)
@@ -87,7 +88,7 @@ function analyze(rows) {
       b.total += pa; totals.total += pa;
     }
 
-    // 수금대기: 세금계산서 발행칸에 날짜가 있으면 해당 행 '금액'
+    // 수금대기: 세금계산서 발행칸에 값(날짜/텍스트)이 있으면 해당 행 '금액'
     if (idx.invoiceDate >= 0 && hasDate(row[idx.invoiceDate])) {
       const amt = toNum(row[idx.amount]);
       b.wait += amt; totals.wait += amt;
