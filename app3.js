@@ -22,6 +22,23 @@ const won = n => "₩" + Math.round(n || 0).toLocaleString("ko-KR");
 const eok = n => (n / 1e8).toFixed(1) + "억";
 const norm = s => String(s ?? "").replace(/\s/g, "");
 
+// 고객사별 색 팔레트 (종합 카드 4색 순환): 파랑, 앰버, 청록, 빨강
+const CUST_COLORS = [
+  { solid: "#2563eb", soft: "#cddffa", dark: "#0c447c", tagBg: "#e6f0fb" }, // 파랑
+  { solid: "#d97706", soft: "#f6e2c0", dark: "#8a5a0a", tagBg: "#fbf0dc" }, // 앰버
+  { solid: "#0f766e", soft: "#cfe9e5", dark: "#0f766e", tagBg: "#d8ede9" }, // 청록
+  { solid: "#dc2626", soft: "#f7d4d4", dark: "#a32d2d", tagBg: "#fbe6e6" }, // 빨강
+];
+// 고객사 등장 순서대로 색 배정 (4곳 초과 시 순환)
+let custColorMap = {};
+function assignCustomerColors(order) {
+  custColorMap = {};
+  order.forEach((name, i) => { custColorMap[name] = CUST_COLORS[i % CUST_COLORS.length]; });
+}
+function custColor(name) {
+  return custColorMap[name] || CUST_COLORS[0];
+}
+
 function mapHeader(headerRow) {
   const idx = {};
   for (const key in COL) {
@@ -158,13 +175,14 @@ function renderSummary(t) {
   el("s-unpaid").textContent = won(t.unpaid);
 }
 
-// 고객사 카드 (동적 증가)
+// 고객사 카드 (동적 증가, 고객사별 색)
 function renderCustomerCards(byCust, order) {
   const wrap = el("cust-cards");
   wrap.innerHTML = order.map(name => {
     const v = byCust[name];
+    const c = custColor(name);
     return `<div class="ccard">
-      <div class="ccard-name">${name}</div>
+      <div class="ccard-name" style="background:${c.solid}">${name}</div>
       <div class="ccard-nums">
         <div><span class="ccard-lbl">수주</span><span class="ccard-val">${won(v.total)}</span></div>
         <div><span class="ccard-lbl">미수금</span><span class="ccard-val neg">${won(v.unpaid)}</span></div>
@@ -209,23 +227,23 @@ function renderProjects(projects) {
     const pct = Math.min(Math.max(pctRaw, 0), 100);      // 채운 폭 (0~100 클램프)
     const remain = Math.max(p.pa - p.rec, 0);            // 남은 금액
     const remainPct = 100 - pct;
+    const c = custColor(p.cust);                          // 고객사 색
     // 제목 옆 총액 (억 단위, 소수 없으면 정수로)
     const eokTotal = p.pa / 1e8;
     const totLabel = (Number.isInteger(eokTotal) ? eokTotal : eokTotal.toFixed(1)) + "억";
-    // 각 구간 라벨 (구간이 너무 좁으면 텍스트 숨김)
     const doneLabel = `${won(p.rec)} (${pctRaw.toFixed(0)}%)`;
     const remainLabel = `${won(remain)} (${remainPct.toFixed(0)}%)`;
     return `<div class="prow">
       <div class="prow-head">
         <span class="prow-name">${p.name || "(이름없음)"} <span class="prow-total">(${totLabel})</span></span>
-        <span class="prow-cust">${p.cust}</span>
+        <span class="prow-cust" style="color:${c.dark}; background:${c.tagBg}">${p.cust}</span>
       </div>
       <div class="pbar">
-        <div class="pbar-fill" style="width:${pct}%">
+        <div class="pbar-fill" style="width:${pct}%; background:${c.solid}">
           ${pct >= 14 ? `<span class="pbar-in">${doneLabel}</span>` : ""}
         </div>
-        <div class="pbar-remain" style="width:${remainPct}%">
-          ${remainPct >= 14 ? `<span class="pbar-in dark">${remainLabel}</span>` : ""}
+        <div class="pbar-remain" style="width:${remainPct}%; background:${c.soft}">
+          ${remainPct >= 14 ? `<span class="pbar-in" style="color:${c.dark}">${remainLabel}</span>` : ""}
         </div>
       </div>
     </div>`;
@@ -314,6 +332,8 @@ async function boot() {
 
     // 1. 종합
     renderSummary(latest.totals);
+    // 고객사 색 배정 (등장 순서대로)
+    assignCustomerColors(latest.order);
     // 2. 고객사 카드
     renderCustomerCards(latest.byCust, latest.order);
     // 3. 고객사별 막대 (발행액 + 실제수금)
