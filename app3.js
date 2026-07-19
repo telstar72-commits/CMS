@@ -270,16 +270,18 @@ function renderCustomerCards(byCust, order) {
 // 고객사별 막대: 연한=발행액(wait), 진한=실제수금(비교)
 function renderCustomerChart(byCust, order, received) {
   const labels = order;
-  const issued = order.map(c => byCust[c].wait);      // 세금계산서 발행액 (연한)
-  const collected = order.map(c => received[c] || 0); // 실제 수금 (진한)
+  const issued = order.map(c => byCust[c].wait);      // 세금계산서 발행액 (연한, 배경)
+  const collected = order.map(c => received[c] || 0); // 실제 수금 (진한, 겹침)
   if (custChart) custChart.destroy();
   custChart = new Chart(el("custChart"), {
-    type: "bar",
     data: { labels, datasets: [
-      { label: "세금계산서 발행액", data: issued, backgroundColor: "#a5d6b7", borderRadius: 4 },
-      { label: "실제 수금액", data: collected, backgroundColor: "#16a34a", borderRadius: 4 },
+      { type: "bar", label: "세금계산서 발행액", data: issued, backgroundColor: "#a5d6b7", borderRadius: 3,
+        categoryPercentage: 0.6, barPercentage: 1.0, grouped: false, order: 2 },
+      { type: "bar", label: "실제 수금액", data: collected, backgroundColor: "#16a34a", borderRadius: 3,
+        categoryPercentage: 0.36, barPercentage: 1.0, grouped: false, order: 1 },
     ]},
     options: { responsive: true, maintainAspectRatio: false,
+      interaction: { mode: "index", intersect: false },
       plugins: { legend: { position: "top", labels: { font: { size: 12 } } },
         tooltip: { callbacks: { label: c => c.dataset.label + ": " + won(c.parsed.y) } } },
       scales: { y: { beginAtZero: true, ticks: { callback: v => "₩" + eok(v) } } } }
@@ -297,17 +299,22 @@ function renderProjects(projects) {
   el("proj-overall").textContent = overallPct.toFixed(0) + "%";
   el("proj-overall-sub").textContent = `총수주 ${eok(totPa)} · 수금 ${eok(totRec)}`;
 
+  // 억 단위 간결 표기 (얇은 막대용)
+  const eokShort = n => {
+    const e = n / 1e8;
+    return (e >= 10 ? e.toFixed(1) : e.toFixed(2)) + "억";
+  };
+
   el("proj-list").innerHTML = list.map(p => {
     const pctRaw = p.pa ? (p.rec / p.pa * 100) : 0;
     const pct = Math.min(Math.max(pctRaw, 0), 100);      // 채운 폭 (0~100 클램프)
     const remain = Math.max(p.pa - p.rec, 0);            // 남은 금액
     const remainPct = 100 - pct;
     const c = custColor(p.cust);                          // 고객사 색
-    // 제목 옆 총액 (억 단위, 소수 없으면 정수로)
     const eokTotal = p.pa / 1e8;
     const totLabel = (Number.isInteger(eokTotal) ? eokTotal : eokTotal.toFixed(1)) + "억";
-    const doneLabel = `${won(p.rec)} (${pctRaw.toFixed(0)}%)`;
-    const remainLabel = `${won(remain)} (${remainPct.toFixed(0)}%)`;
+    const doneLabel = `${eokShort(p.rec)} (${pctRaw.toFixed(0)}%)`;
+    const remainLabel = `${eokShort(remain)} (${remainPct.toFixed(0)}%)`;
     return `<div class="prow">
       <div class="prow-head">
         <span class="prow-name">${p.name || "(이름없음)"} <span class="prow-total">(${totLabel})</span></span>
@@ -315,10 +322,10 @@ function renderProjects(projects) {
       </div>
       <div class="pbar">
         <div class="pbar-fill" style="width:${pct}%; background:${c.solid}">
-          ${pct >= 14 ? `<span class="pbar-in">${doneLabel}</span>` : ""}
+          ${pct >= 30 ? `<span class="pbar-in">${doneLabel}</span>` : ""}
         </div>
         <div class="pbar-remain" style="width:${remainPct}%; background:${c.soft}">
-          ${remainPct >= 14 ? `<span class="pbar-in" style="color:${c.dark}">${remainLabel}</span>` : ""}
+          ${remainPct >= 30 ? `<span class="pbar-in" style="color:${c.dark}">${remainLabel}</span>` : ""}
         </div>
       </div>
     </div>`;
