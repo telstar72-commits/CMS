@@ -491,14 +491,24 @@ async function boot() {
     // 4. 프로젝트 진행율
     renderProjects(latest.projects);
 
-    // 5. 월별 목표대비 성과 (2026-07부터 12개월 고정 축)
+    // 5. 월별 목표대비 성과 (데이터 있는 가장 이른 달부터 12개월 자동 축)
     //    목표 = 그 달 대표파일의 세금계산서 발행액 / 성과 = 그 달 실제 수금액(전월 대비)
     const byMonth = {};
     for (const p of parsedList) { if (p.file.mkey) (byMonth[p.file.mkey] ||= []).push(p); }
     for (const k in byMonth) byMonth[k].sort((a, b) => a.file.snum - b.file.snum);
 
-    // 고정 12개월 라벨 생성 (2026-07 ~ 2027-06)
-    const START_Y = 2026, START_M = 7;
+    // 시작 월 = 데이터가 있는 가장 이른 달 (없으면 현재 연-월)
+    const dataMonths = Object.keys(byMonth).sort();
+    let START_Y, START_M;
+    if (dataMonths.length > 0) {
+      const [y, m] = dataMonths[0].split("-").map(Number);
+      START_Y = y; START_M = m;
+    } else {
+      const now = new Date();
+      START_Y = now.getFullYear(); START_M = now.getMonth() + 1;
+    }
+
+    // 시작 달부터 12개월 라벨 생성
     const axis = [];
     for (let i = 0; i < 12; i++) {
       const mIdx = (START_M - 1 + i);
