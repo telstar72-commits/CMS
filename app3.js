@@ -454,6 +454,9 @@ function openDetailModal(type, name) {
     : `<div class="drow"><span class="drow-label">상세 내역이 없습니다.</span><span></span></div>`;
   el("detail-total").textContent = won(total);
   el("detail-total").className = "detail-total " + (amtClass === "pay" ? "num-unpaid" : "num-done");
+  // 합계 행 배경색 (미수=초록, 미지급=빨강)
+  const totalRow = document.querySelector(".detail-total-row");
+  if (totalRow) totalRow.className = "detail-total-row " + amtClass;
   el("detail-modal").classList.remove("hidden");
 }
 function closeDetailModal() { el("detail-modal").classList.add("hidden"); }

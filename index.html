@@ -132,9 +132,12 @@
   .detail-sub{font-size:12px; color:var(--sub); margin-bottom:16px}
   .detail-rows{}
   .detail-rows .drow{display:flex; justify-content:space-between; align-items:center; padding:11px 0; border-bottom:0.5px solid var(--line); gap:12px}
+  .detail-rows .drow:last-child{border-bottom:none}
   .drow-label{font-size:13px; color:var(--sub)}
   .drow-amt{font-size:13px; font-weight:700; white-space:nowrap}
-  .detail-total-row{display:flex; justify-content:space-between; align-items:center; padding:13px 0 2px; margin-top:4px; border-top:2px solid var(--line)}
+  .detail-total-row{display:flex; justify-content:space-between; align-items:center; padding:11px 12px; margin:8px -6px 0; border-radius:8px}
+  .detail-total-row.recv{background:#e6f4ec}
+  .detail-total-row.pay{background:#fbeaea}
   .detail-total-row>span:first-child{font-size:13.5px; font-weight:700}
   .detail-total{font-size:15px; font-weight:800}
   .rp-row.clickable{cursor:pointer}
