@@ -8,88 +8,84 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
   :root{
-    --ink:#1a2b3c;
-    --sub:#5a6b7c;
-    --line:#e2e8ee;
-    --bg:#f6f8fa;
-    --card:#ffffff;
-    --total:#2563eb;
-    --wait:#d97706;
-    --done:#16a34a;
-    --unpaid:#dc2626;
-    --accent:#0f4c81;
+    --ink:#16202c; --sub:#64748b; --line:#e5eaf0; --bg:#eef1f5; --card:#ffffff;
+    --blue:#2563eb; --amber:#d97706; --green:#16a34a; --red:#dc2626;
+    --green-soft:#a5d6b7; --accent:#0f4c81;
   }
-  *{box-sizing:border-box;margin:0;padding:0}
-  body{
-    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Malgun Gothic","맑은 고딕",sans-serif;
-    background:var(--bg); color:var(--ink); line-height:1.5;
-  }
-  .wrap{max-width:1200px; margin:0 auto; padding:24px 20px 80px}
-  header{margin-bottom:24px}
-  h1{font-size:22px; font-weight:800; letter-spacing:-0.02em}
-  .subtitle{color:var(--sub); font-size:13px; margin-top:4px}
+  *{box-sizing:border-box; margin:0; padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Malgun Gothic",sans-serif;
+    background:var(--bg); color:var(--ink); line-height:1.5}
+  .wrap{max-width:1240px; margin:0 auto; padding:24px 20px 80px}
 
-  .drop{
-    margin-top:20px; border:2px dashed var(--line); border-radius:14px;
-    background:var(--card); padding:36px 24px; text-align:center; cursor:pointer;
-    transition:.15s;
-  }
-  .drop:hover,.drop.over{border-color:var(--accent); background:#f0f6fb}
-  .drop strong{color:var(--accent)}
-  .drop .hint{font-size:12px; color:var(--sub); margin-top:6px}
-  #file{display:none}
-  .filename{font-size:13px; color:var(--sub); margin-top:10px}
-  .filelist{margin-top:14px; background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px 16px}
-  .filelist .fl-head{font-size:12px; font-weight:700; color:var(--accent); margin-bottom:8px}
-  .filelist .fl-row{display:flex; align-items:center; gap:8px; font-size:13px; padding:5px 0}
-  .filelist .fl-name{color:var(--ink); word-break:break-all}
-  .badge{font-size:11px; font-weight:700; padding:2px 8px; border-radius:20px; white-space:nowrap}
-  .badge.prev{background:#eef2f7; color:#5a6b7c}
-  .badge.curr{background:#dcfce7; color:#15803d}
+  header{margin-bottom:22px; display:flex; align-items:baseline; gap:14px; flex-wrap:wrap}
+  h1{font-size:23px; font-weight:800; letter-spacing:-0.02em}
+  .boot{font-size:13px; color:var(--sub)}
 
-  .cards{
-    display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-top:24px;
-  }
-  .card{
-    background:var(--card); border:1px solid var(--line); border-radius:14px;
-    padding:18px 18px 16px; position:relative; overflow:hidden;
-  }
-  .card::before{content:""; position:absolute; left:0; top:0; bottom:0; width:4px}
-  .card.total::before{background:var(--total)}
-  .card.wait::before{background:var(--wait)}
-  .card.done::before{background:var(--done)}
-  .card.unpaid::before{background:var(--unpaid)}
-  .card .label{font-size:12.5px; color:var(--sub); font-weight:600}
-  .card .value{font-size:22px; font-weight:800; margin-top:8px; letter-spacing:-0.02em}
-  .card .value small{font-size:13px; font-weight:600; color:var(--sub); margin-left:2px}
-
-  section{margin-top:32px}
-  .sec-title{font-size:15px; font-weight:800; margin-bottom:12px; display:flex; align-items:center; gap:8px}
+  .sec-title{font-size:15px; font-weight:800; margin:28px 0 14px; display:flex; align-items:center; gap:8px}
   .sec-title::before{content:""; width:4px; height:16px; background:var(--accent); border-radius:2px}
+  .sec-title .muted{font-weight:600; color:var(--sub); font-size:12px}
 
-  .chart-box{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px; height:360px}
+  /* 종합 4카드 */
+  .cards{display:grid; grid-template-columns:repeat(4,1fr); gap:14px}
+  .card{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px; position:relative; overflow:hidden}
+  .card::before{content:""; position:absolute; left:0; top:0; bottom:0; width:4px}
+  .card.total::before{background:var(--blue)} .card.wait::before{background:var(--amber)}
+  .card.done::before{background:var(--green)} .card.unpaid::before{background:var(--red)}
+  .card .label{font-size:12.5px; color:var(--sub); font-weight:600}
+  .card .value{font-size:21px; font-weight:800; margin-top:8px; letter-spacing:-0.02em}
+  .card .value small{font-size:12px; font-weight:600; color:var(--sub)}
 
-  .table-box{background:var(--card); border:1px solid var(--line); border-radius:14px; overflow:auto}
-  table{width:100%; border-collapse:collapse; font-size:13px; min-width:640px}
-  th,td{padding:11px 14px; text-align:right; white-space:nowrap}
-  th{background:#f0f4f8; color:var(--sub); font-weight:700; font-size:12px; position:sticky; top:0}
+  /* 고객사 카드 (동적) */
+  .ccards{display:grid; grid-template-columns:repeat(4,1fr); gap:14px}
+  .ccard{background:var(--card); border:1px solid var(--line); border-radius:14px; overflow:hidden}
+  .ccard-name{background:var(--accent); color:#fff; font-weight:800; font-size:14px; padding:10px 16px}
+  .ccard-nums{padding:12px 16px; display:flex; flex-direction:column; gap:7px}
+  .ccard-nums>div{display:flex; justify-content:space-between; align-items:baseline}
+  .ccard-lbl{font-size:12px; color:var(--sub)}
+  .ccard-val{font-size:14px; font-weight:700}
+  .ccard-val.neg{color:var(--red)} .ccard-val.pos{color:var(--green)}
+
+  .chart-box{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px; height:340px}
+
+  /* 프로젝트 진행율 */
+  .proj-head{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:16px 20px; display:flex; align-items:center; gap:20px; margin-bottom:14px}
+  .proj-overall{font-size:34px; font-weight:800; color:var(--accent); line-height:1}
+  .proj-overall-label{font-size:13px; color:var(--sub); font-weight:600}
+  .proj-overall-sub{font-size:12px; color:var(--sub); margin-top:2px}
+  .proj-list{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:8px 18px}
+  .prow{padding:12px 0; border-bottom:1px solid var(--line)}
+  .prow:last-child{border-bottom:none}
+  .prow-head{display:flex; justify-content:space-between; align-items:baseline; margin-bottom:6px}
+  .prow-name{font-size:13.5px; font-weight:600}
+  .prow-cust{font-size:11.5px; color:var(--sub); background:#eef2f7; padding:2px 8px; border-radius:20px}
+  .pbar{position:relative; height:26px; background:#e8f5ec; border-radius:6px; overflow:hidden}
+  .pbar-fill{position:absolute; left:0; top:0; bottom:0; background:var(--green); border-radius:6px 0 0 6px; transition:width .5s}
+  .pbar-txt{position:absolute; right:10px; top:0; bottom:0; display:flex; align-items:center; font-size:11.5px; font-weight:700; color:var(--ink)}
+
+  /* 표 */
+  .table-box{background:var(--card); border:1px solid var(--line); border-radius:14px; overflow:auto; margin-top:14px}
+  table{width:100%; border-collapse:collapse; font-size:13px; min-width:480px}
+  th,td{padding:11px 16px; text-align:right; white-space:nowrap}
+  th{background:#f0f4f8; color:var(--sub); font-weight:700; font-size:12px}
   th:first-child,td:first-child{text-align:left; font-weight:600}
   tbody tr{border-top:1px solid var(--line)}
-  tbody tr:hover{background:#f8fafc}
-  tfoot td{border-top:2px solid var(--ink); font-weight:800; background:#f0f4f8}
-  .num-total{color:var(--total)}
-  .num-wait{color:var(--wait)}
-  .num-done{color:var(--done)}
-  .num-unpaid{color:var(--unpaid)}
+  .num-total{color:var(--blue)} .num-done{color:var(--green)}
 
-  .empty{color:var(--sub); text-align:center; padding:40px; font-size:14px}
+  /* 저장 파일 목록 */
+  .saved{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:16px 18px}
+  .sf-row{display:flex; align-items:center; gap:8px; font-size:13px; padding:6px 0; border-bottom:1px solid var(--line)}
+  .sf-row:last-child{border-bottom:none}
+  .sf-name{word-break:break-all}
+  .badge{font-size:11px; font-weight:700; padding:2px 9px; border-radius:20px; background:#e0edf7; color:var(--accent); white-space:nowrap; margin-left:auto}
+
+  .empty{color:var(--sub); text-align:center; padding:50px; font-size:14px; background:var(--card); border:1px dashed var(--line); border-radius:14px}
   .hidden{display:none}
-  .err{background:#fef2f2; border:1px solid #fecaca; color:#b91c1c; padding:12px 16px; border-radius:10px; margin-top:16px; font-size:13px}
 
-  @media(max-width:760px){
-    .cards{grid-template-columns:repeat(2,1fr)}
-    .card .value{font-size:19px}
-    .wrap{padding:16px 14px 60px}
+  @media(max-width:860px){
+    .cards,.ccards{grid-template-columns:repeat(2,1fr)}
+  }
+  @media(max-width:520px){
+    .cards,.ccards{grid-template-columns:1fr}
   }
 </style>
 </head>
@@ -97,89 +93,63 @@
 <div class="wrap">
   <header>
     <h1>Cash Flow Monitoring System</h1>
-    <div class="subtitle">파일 1개 = 현황 분석 · 파일 2개 = 기간 수금액 비교 (이전 → 최근)</div>
+    <span class="boot" id="boot-status">불러오는 중...</span>
   </header>
 
-  <label class="drop" id="drop" for="file">
-    <div>📊 <strong>엑셀 파일을 선택</strong>하거나 여기로 끌어다 놓으세요</div>
-    <div class="hint">.xlsx / .xls / .csv — 두 시점 파일을 함께 올리면 그 사이 수금된 금액을 계산합니다. 파일은 서버로 전송되지 않고 브라우저에서만 분석됩니다.</div>
-    <input type="file" id="file" accept=".xlsx,.xls,.csv" multiple>
-    <div class="filename" id="filename"></div>
-  </label>
-
-  <div id="filelist" class="filelist hidden"></div>
-
-  <div id="history" class="hidden">
-    <section>
-      <div class="sec-title">월별 수금 추이 <span id="hist-status" style="font-weight:600;color:var(--sub);font-size:12px;margin-left:8px"></span></div>
-      <div class="chart-box" style="height:360px"><canvas id="histChart"></canvas></div>
-      <div class="table-box" style="margin-top:14px">
-        <table id="hist-table">
-          <thead><tr><th>월</th><th>그 달 수금액</th><th>누적 수금완료</th></tr></thead>
-          <tbody></tbody>
-        </table>
-      </div>
-    </section>
+  <div id="empty-note" class="empty hidden">
+    아직 저장된 데이터가 없습니다.<br>
+    GitHub 저장소의 <b>data</b> 폴더에 월별 엑셀 파일을 올리면 여기에 표시됩니다.
   </div>
 
-  <div id="error" class="err hidden"></div>
+  <div id="dashboard" class="hidden">
 
-  <div id="compare" class="hidden">
-    <section>
-      <div class="sec-title">기간 수금액 <span id="cmp-label" style="font-weight:600;color:var(--sub);font-size:12px;margin-left:8px"></span></div>
-      <div class="cards" style="grid-template-columns:1fr">
-        <div class="card done">
-          <div class="label">이 기간에 수금된 금액 <small>(세금계산서 발행칸에서 빠진 금액)</small></div>
-          <div class="value" id="cmp-total" style="font-size:26px">-</div>
-        </div>
-      </div>
-      <div class="chart-box" style="height:300px;margin-top:14px"><canvas id="cmpChart"></canvas></div>
-      <div class="table-box" style="margin-top:14px">
-        <table id="cmp-table">
-          <thead><tr><th>고객사</th><th>기간 수금액</th></tr></thead>
-          <tbody></tbody>
-          <tfoot></tfoot>
-        </table>
-      </div>
-    </section>
-  </div>
-
-  <div id="result" class="hidden">
-    <div class="sec-title" style="margin-bottom:12px">현황 <span style="font-weight:600;color:var(--sub);font-size:12px;margin-left:8px">최근 파일 기준</span></div>
+    <!-- 1. 종합 -->
+    <div class="sec-title">종합 현황 <span class="muted">최신 파일 기준</span></div>
     <div class="cards">
-      <div class="card total"><div class="label">총수주금액</div><div class="value" id="v-total">-</div></div>
-      <div class="card wait"><div class="label">수금대기 <small>(세금계산서 발행)</small></div><div class="value" id="v-wait">-</div></div>
-      <div class="card done"><div class="label">수금완료 <small>(수금액 합계)</small></div><div class="value" id="v-done">-</div></div>
-      <div class="card unpaid"><div class="label">현 미수금 <small>(미결제TC)</small></div><div class="value" id="v-unpaid">-</div></div>
+      <div class="card total"><div class="label">총수주금액</div><div class="value" id="s-total">-</div></div>
+      <div class="card wait"><div class="label">수금대기 <small>(세금계산서 발행)</small></div><div class="value" id="s-wait">-</div></div>
+      <div class="card done"><div class="label">수금완료 <small>(수금액 합계)</small></div><div class="value" id="s-done">-</div></div>
+      <div class="card unpaid"><div class="label">현 미수금 <small>(미결제TC)</small></div><div class="value" id="s-unpaid">-</div></div>
     </div>
 
-    <section>
-      <div class="sec-title">고객사별 분석</div>
-      <div class="chart-box"><canvas id="chart"></canvas></div>
-    </section>
+    <!-- 2. 고객사 카드 -->
+    <div class="sec-title">고객사별 현황</div>
+    <div class="ccards" id="cust-cards"></div>
 
-    <section>
-      <div class="table-box">
-        <table id="table">
-          <thead>
-            <tr>
-              <th>고객사</th>
-              <th>총수주금액</th>
-              <th>수금대기</th>
-              <th>수금완료</th>
-              <th>현 미수금</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-          <tfoot></tfoot>
-        </table>
+    <!-- 3. 고객사별 막대 -->
+    <div class="sec-title">고객사별 세금계산서 발행 vs 실제 수금</div>
+    <div class="chart-box"><canvas id="custChart"></canvas></div>
+
+    <!-- 4. 프로젝트 진행율 -->
+    <div class="sec-title">프로젝트 진행율 <span class="muted">수주금액 대비 수금액</span></div>
+    <div class="proj-head">
+      <div>
+        <div class="proj-overall" id="proj-overall">-</div>
       </div>
-    </section>
-  </div>
+      <div>
+        <div class="proj-overall-label">전체 진행율</div>
+        <div class="proj-overall-sub" id="proj-overall-sub"></div>
+      </div>
+    </div>
+    <div class="proj-list" id="proj-list"></div>
 
-  <div id="placeholder" class="empty">아직 업로드된 파일이 없습니다.</div>
+    <!-- 5. 월별 추이 -->
+    <div class="sec-title">월별 수금 추이</div>
+    <div class="chart-box"><canvas id="monthChart"></canvas></div>
+    <div class="table-box">
+      <table id="month-table">
+        <thead><tr><th>월</th><th>그 달 수금액</th><th>누적 수금완료</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <!-- 6. 저장 파일 -->
+    <div class="sec-title">저장된 데이터 파일 <span class="muted" id="saved-count"></span></div>
+    <div class="saved" id="saved-list"></div>
+
+  </div>
 </div>
 
-<script src="app2.js"></script>
+<script src="app3.js"></script>
 </body>
 </html>
