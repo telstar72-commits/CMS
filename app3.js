@@ -395,11 +395,11 @@ function renderReceivablePayable(receivableByCust, payableByVendor) {
     return html;
   };
 
-  // 미수금 (고객사별) — 고객사 색
+  // 미수금 (고객사별) — 고객사 색, 클릭 시 프로젝트별 상세
   el("recv-total").textContent = won(recvTotal);
   let recvHtml = recvList.map(([name, v]) => {
     const c = custColor(name);
-    return `<div class="rp-row">
+    return `<div class="rp-row clickable" data-type="recv" data-name="${encodeURIComponent(name)}">
       <span class="rp-name"><span class="rp-dot" style="background:${c.solid}"></span>${name}</span>
       <span class="rp-amt recv">${won(v)}</span>
     </div>`;
@@ -407,14 +407,56 @@ function renderReceivablePayable(receivableByCust, payableByVendor) {
   if (recvList.length < MIN_ROWS) recvHtml += fillEmpty(MIN_ROWS - recvList.length);
   el("recv-list").innerHTML = recvHtml;
 
-  // 미지급 (업체별) — 전체 표시, 7칸 넘으면 스크롤
+  // 미지급 (업체별) — 전체 표시, 클릭 시 월별 상세
   el("pay-total").textContent = won(payTotal);
   let payHtml = payList.map(([name, v]) =>
-    `<div class="rp-row"><span class="rp-name">${name}</span><span class="rp-amt pay">${won(v)}</span></div>`
+    `<div class="rp-row clickable" data-type="pay" data-name="${encodeURIComponent(name)}"><span class="rp-name">${name}</span><span class="rp-amt pay">${won(v)}</span></div>`
   ).join("");
   if (payList.length < MIN_ROWS) payHtml += fillEmpty(MIN_ROWS - payList.length);
   el("pay-list").innerHTML = payHtml;
+
+  // 클릭 이벤트 연결
+  document.querySelectorAll("#recv-list .rp-row.clickable, #pay-list .rp-row.clickable").forEach(row => {
+    row.addEventListener("click", () => {
+      const type = row.dataset.type;
+      const name = decodeURIComponent(row.dataset.name);
+      openDetailModal(type, name);
+    });
+  });
 }
+
+// 상세 팝업 열기
+function openDetailModal(type, name) {
+  const monthLabel = mk => {
+    const [y, m] = mk.split("-");
+    return `${y}년 ${parseInt(m)}월`;
+  };
+  let rows = [], sub = "", amtClass = "";
+  if (type === "pay") {
+    // 미지급: 업체의 월별(발행월) 상세
+    const detail = (window.__payableDetail || {})[name] || {};
+    rows = Object.keys(detail).sort().map(mk => ({ label: monthLabel(mk), amt: detail[mk] }));
+    sub = "미지급 상세 내역 (세금계산서 발행월 기준)";
+    amtClass = "pay";
+  } else {
+    // 미수금: 고객사의 프로젝트별 상세
+    const detail = (window.__receivableDetail || {})[name] || [];
+    rows = detail.slice().sort((a, b) => b.amt - a.amt).map(p => ({ label: p.name, amt: p.amt }));
+    sub = "미수금 상세 내역 (프로젝트별)";
+    amtClass = "recv";
+  }
+  const total = rows.reduce((s, r) => s + r.amt, 0);
+
+  el("detail-title").textContent = name;
+  el("detail-sub").textContent = sub;
+  el("detail-rows").innerHTML = rows.length
+    ? rows.map(r => `<div class="drow"><span class="drow-label">${r.label}</span><span class="drow-amt ${amtClass === "pay" ? "num-unpaid" : "num-done"}">${won(r.amt)}</span></div>`).join("")
+    : `<div class="drow"><span class="drow-label">상세 내역이 없습니다.</span><span></span></div>`;
+  el("detail-total").textContent = won(total);
+  el("detail-total").className = "detail-total " + (amtClass === "pay" ? "num-unpaid" : "num-done");
+  el("detail-modal").classList.remove("hidden");
+}
+function closeDetailModal() { el("detail-modal").classList.add("hidden"); }
 
 // 저장된 파일 목록 (매출/매입 분리, 삭제 버튼 포함)
 let currentFiles = []; // 삭제 시 sha/path 참조용
@@ -637,13 +679,16 @@ async function boot() {
     }
     // 업체별 미지급(줄 돈) = 최신 매입 파일의 업체별 발행액 합
     const payableByVendor = {};
+    const payableDetailByVendor = {}; // 업체별 월별 상세 (팝업용)
     if (purchaseParsed.length > 0) {
       const latestP = purchaseParsed[purchaseParsed.length - 1];
       for (const [key, amt] of latestP.detail) {
-        const vendor = key.split("|")[0];
+        const [vendor, mk] = key.split("|");
         payableByVendor[vendor] = (payableByVendor[vendor] || 0) + amt;
+        (payableDetailByVendor[vendor] = payableDetailByVendor[vendor] || {})[mk] = amt;
       }
     }
+    window.__payableDetail = payableDetailByVendor;
 
     const latest = parsedList[parsedList.length - 1].data;
     const prev = parsedList.length >= 2 ? parsedList[parsedList.length - 2].data : null;
@@ -725,6 +770,15 @@ async function boot() {
       const v = latest.byCust[name];
       if (v && v.unpaid > 0) receivableByCust[name] = v.unpaid;
     }
+    // 미수금 상세: 고객사별 프로젝트 목록 (미수 = 수주 - 수금)
+    const recvDetailByCust = {};
+    for (const p of Object.values(latest.projects)) {
+      if (!p.cust) continue;
+      const unpaid = Math.max((p.pa || 0) - (p.rec || 0), 0);
+      if (unpaid <= 0) continue;
+      (recvDetailByCust[p.cust] = recvDetailByCust[p.cust] || []).push({ name: p.name || "(이름없음)", amt: unpaid });
+    }
+    window.__receivableDetail = recvDetailByCust;
     renderReceivablePayable(receivableByCust, payableByVendor);
 
     // 6. 저장 파일 목록
@@ -753,6 +807,13 @@ function wireControls() {
   const yes = el("modal-yes"), no = el("modal-no");
   if (yes) yes.addEventListener("click", confirmDelete);
   if (no) no.addEventListener("click", closeModal);
+
+  // 상세 팝업 닫기 (× 버튼 + 바깥 클릭)
+  const dClose = el("detail-close"), dModal = el("detail-modal");
+  if (dClose) dClose.addEventListener("click", closeDetailModal);
+  if (dModal) dModal.addEventListener("click", (e) => {
+    if (e.target === dModal) closeDetailModal(); // 바깥(오버레이) 클릭만
+  });
 }
 
 wireControls();

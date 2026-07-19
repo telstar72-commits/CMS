@@ -124,6 +124,22 @@
   .modal-yes{background:var(--red); color:#fff}
   .modal-yes:active,.modal-no:active{transform:scale(0.97)}
 
+  /* 상세 팝업 (미수금/미지급 클릭) */
+  .detail-box{background:#fff; border-radius:14px; padding:22px; width:min(92%,380px); max-height:70vh; overflow-y:auto; box-shadow:0 10px 40px rgba(0,0,0,0.2)}
+  .detail-head{display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:3px}
+  .detail-title{font-size:16px; font-weight:800}
+  .detail-close{font-size:22px; color:var(--sub); cursor:pointer; line-height:1; padding:0 4px}
+  .detail-sub{font-size:12px; color:var(--sub); margin-bottom:16px}
+  .detail-rows{}
+  .detail-rows .drow{display:flex; justify-content:space-between; align-items:center; padding:11px 0; border-bottom:0.5px solid var(--line); gap:12px}
+  .drow-label{font-size:13px; color:var(--sub)}
+  .drow-amt{font-size:13px; font-weight:700; white-space:nowrap}
+  .detail-total-row{display:flex; justify-content:space-between; align-items:center; padding:13px 0 2px; margin-top:4px; border-top:2px solid var(--line)}
+  .detail-total-row>span:first-child{font-size:13.5px; font-weight:700}
+  .detail-total{font-size:15px; font-weight:800}
+  .rp-row.clickable{cursor:pointer}
+  .rp-row.clickable:hover{background:#f6f9fc; margin:0 -16px; padding-left:16px; padding-right:16px}
+
   .empty{color:var(--sub); text-align:center; padding:50px; font-size:14px; background:var(--card); border:1px dashed var(--line); border-radius:14px}
   .hidden{display:none}
 
@@ -234,6 +250,21 @@
     <div class="modal-btns">
       <button class="modal-no" id="modal-no">아니오</button>
       <button class="modal-yes" id="modal-yes">예</button>
+    </div>
+  </div>
+</div>
+
+<div id="detail-modal" class="modal-overlay hidden">
+  <div class="detail-box">
+    <div class="detail-head">
+      <span class="detail-title" id="detail-title"></span>
+      <span class="detail-close" id="detail-close">×</span>
+    </div>
+    <div class="detail-sub" id="detail-sub"></div>
+    <div class="detail-rows" id="detail-rows"></div>
+    <div class="detail-total-row">
+      <span>합계</span>
+      <span class="detail-total" id="detail-total"></span>
     </div>
   </div>
 </div>
