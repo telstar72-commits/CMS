@@ -57,10 +57,13 @@
   .prow:last-child{border-bottom:none}
   .prow-head{display:flex; justify-content:space-between; align-items:baseline; margin-bottom:6px}
   .prow-name{font-size:13.5px; font-weight:600}
+  .prow-total{font-size:12px; font-weight:600; color:var(--sub)}
   .prow-cust{font-size:11.5px; color:var(--sub); background:#eef2f7; padding:2px 8px; border-radius:20px}
-  .pbar{position:relative; height:26px; background:#e8f5ec; border-radius:6px; overflow:hidden}
-  .pbar-fill{position:absolute; left:0; top:0; bottom:0; background:var(--green); border-radius:6px 0 0 6px; transition:width .5s}
-  .pbar-txt{position:absolute; right:10px; top:0; bottom:0; display:flex; align-items:center; font-size:11.5px; font-weight:700; color:var(--ink)}
+  .pbar{display:flex; height:30px; border-radius:6px; overflow:hidden}
+  .pbar-fill{background:var(--green); display:flex; align-items:center; justify-content:flex-end; min-width:0; overflow:hidden}
+  .pbar-remain{background:#d8ede0; display:flex; align-items:center; justify-content:flex-end; min-width:0; overflow:hidden}
+  .pbar-in{font-size:11.5px; font-weight:700; color:#fff; padding:0 10px; white-space:nowrap}
+  .pbar-in.dark{color:#1a6b42}
 
   /* 표 */
   .table-box{background:var(--card); border:1px solid var(--line); border-radius:14px; overflow:auto; margin-top:14px}

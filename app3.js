@@ -205,16 +205,28 @@ function renderProjects(projects) {
   el("proj-overall-sub").textContent = `총수주 ${eok(totPa)} · 수금 ${eok(totRec)}`;
 
   el("proj-list").innerHTML = list.map(p => {
-    const pct = p.pa ? Math.min(p.rec / p.pa * 100, 100) : 0;
     const pctRaw = p.pa ? (p.rec / p.pa * 100) : 0;
+    const pct = Math.min(Math.max(pctRaw, 0), 100);      // 채운 폭 (0~100 클램프)
+    const remain = Math.max(p.pa - p.rec, 0);            // 남은 금액
+    const remainPct = 100 - pct;
+    // 제목 옆 총액 (억 단위, 소수 없으면 정수로)
+    const eokTotal = p.pa / 1e8;
+    const totLabel = (Number.isInteger(eokTotal) ? eokTotal : eokTotal.toFixed(1)) + "억";
+    // 각 구간 라벨 (구간이 너무 좁으면 텍스트 숨김)
+    const doneLabel = `${won(p.rec)} (${pctRaw.toFixed(0)}%)`;
+    const remainLabel = `${won(remain)} (${remainPct.toFixed(0)}%)`;
     return `<div class="prow">
       <div class="prow-head">
-        <span class="prow-name">${p.name || "(이름없음)"}</span>
+        <span class="prow-name">${p.name || "(이름없음)"} <span class="prow-total">(${totLabel})</span></span>
         <span class="prow-cust">${p.cust}</span>
       </div>
       <div class="pbar">
-        <div class="pbar-fill" style="width:${pct}%"></div>
-        <div class="pbar-txt">${won(p.rec)} / ${won(p.pa)} · ${pctRaw.toFixed(0)}%</div>
+        <div class="pbar-fill" style="width:${pct}%">
+          ${pct >= 14 ? `<span class="pbar-in">${doneLabel}</span>` : ""}
+        </div>
+        <div class="pbar-remain" style="width:${remainPct}%">
+          ${remainPct >= 14 ? `<span class="pbar-in dark">${remainLabel}</span>` : ""}
+        </div>
       </div>
     </div>`;
   }).join("");
