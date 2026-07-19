@@ -6,6 +6,7 @@ const GH_BRANCH = "main";
 const GH_DATA_DIR = "data";
 
 const COL = {
+  year: ["연도", "년도", "수주연도", "수주년도"],
   customer: ["고객사"],
   category: ["구분"],
   projectAmount: ["프로젝트금액", "프로젝트 금액"],
@@ -102,6 +103,7 @@ function parseFile(rows) {
     const up = toNum(row[idx.unpaid]);
     const pnum = idx.project >= 0 ? String(row[idx.project] ?? "").trim() : "";
     const pname = idx.projectName >= 0 ? String(row[idx.projectName] ?? "").trim() : "";
+    const yr = idx.year >= 0 ? parseInt(String(row[idx.year] ?? "").replace(/\D/g, "")) : null;
 
     if (!byCust[cust]) { byCust[cust] = { total: 0, wait: 0, done: 0, unpaid: 0 }; order.push(cust); }
     const b = byCust[cust];
@@ -113,10 +115,22 @@ function parseFile(rows) {
     records.push({ seq: seq++, cust, amt, invoiced });
 
     const pk = pnum || pname || (cust + seq);
-    if (!projects[pk]) projects[pk] = { cust, name: pname || pnum, pa: 0, rec: 0 };
+    if (!projects[pk]) projects[pk] = { cust, name: pname || pnum, pa: 0, rec: 0, unpaid: 0, year: yr };
     if (cat.includes("계약금")) projects[pk].pa = pa;
+    if (yr && !projects[pk].year) projects[pk].year = yr;
     projects[pk].rec += rec;
+    projects[pk].unpaid += up;
   }
+
+  // 올해(2026) 매출 = 수주연도 2026이면 전체 프로젝트금액, 이전연도면 남은 잔액(미결제)
+  const THIS_YEAR = 2026;
+  let revThisYear = 0;
+  for (const p of Object.values(projects)) {
+    if (p.pa <= 0) continue;
+    revThisYear += (p.year === THIS_YEAR) ? p.pa : p.unpaid;
+  }
+  totals.revThisYear = revThisYear;
+
   return { totals, byCust, records, projects, order };
 }
 
@@ -262,7 +276,7 @@ const el = id => document.getElementById(id);
 let custChart, projChart, monthChart;
 
 function renderSummary(t) {
-  el("s-total").textContent = won(t.total);
+  el("s-total").textContent = won(t.revThisYear != null ? t.revThisYear : t.total);
   el("s-wait").textContent = won(t.wait);
   el("s-done").textContent = won(t.done);
   el("s-unpaid").textContent = won(t.unpaid);
