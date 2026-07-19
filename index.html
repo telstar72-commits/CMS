@@ -55,11 +55,14 @@
   .sec-title .muted{font-weight:600; color:var(--sub); font-size:12px}
 
   /* 종합 4카드 */
-  .cards{display:grid; grid-template-columns:repeat(4,1fr); gap:14px}
+  .cards{display:grid; grid-template-columns:repeat(5,1fr); gap:14px}
   .card{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px; position:relative; overflow:hidden}
   .card::before{content:""; position:absolute; left:0; top:0; bottom:0; width:4px}
   .card.total::before{background:var(--blue)} .card.wait::before{background:var(--amber)}
   .card.done::before{background:var(--green)} .card.unpaid::before{background:var(--red)}
+  .card.rev2026::before{background:#7c3aed}
+  .card.rev2026{background:#faf7ff}
+  @media(max-width:1000px){ .cards{grid-template-columns:repeat(2,1fr)} }
   .card .label{font-size:12.5px; color:var(--sub); font-weight:600}
   .card .value{font-size:21px; font-weight:800; margin-top:8px; letter-spacing:-0.02em}
   .card .value small{font-size:12px; font-weight:600; color:var(--sub)}
@@ -205,10 +208,11 @@
       <!-- 1. 종합 -->
       <div class="sec-title">종합 현황 <span class="muted">최신 파일 기준</span></div>
       <div class="cards">
-        <div class="card total"><div class="label">26년 매출 <small>(올해 발생분)</small></div><div class="value" id="s-total">-</div></div>
-        <div class="card wait"><div class="label">수금대기 <small>(세금계산서 발행)</small></div><div class="value" id="s-wait">-</div></div>
+        <div class="card total"><div class="label">총수주금액</div><div class="value" id="s-total">-</div></div>
         <div class="card done"><div class="label">수금완료 <small>(수금액 합계)</small></div><div class="value" id="s-done">-</div></div>
         <div class="card unpaid"><div class="label">현 미수금 <small>(미결제TC)</small></div><div class="value" id="s-unpaid">-</div></div>
+        <div class="card wait"><div class="label">수금대기 <small>(세금계산서 발행)</small></div><div class="value" id="s-wait">-</div></div>
+        <div class="card rev2026"><div class="label">26년 매출 <small>(올해 발생분)</small></div><div class="value" id="s-rev2026">-</div></div>
       </div>
 
       <!-- 2. 고객사 카드 -->

@@ -276,10 +276,12 @@ const el = id => document.getElementById(id);
 let custChart, projChart, monthChart;
 
 function renderSummary(t) {
-  el("s-total").textContent = won(t.revThisYear != null ? t.revThisYear : t.total);
-  el("s-wait").textContent = won(t.wait);
+  el("s-total").textContent = won(t.total);
   el("s-done").textContent = won(t.done);
+  el("s-wait").textContent = won(t.wait);
   el("s-unpaid").textContent = won(t.unpaid);
+  const rev = el("s-rev2026");
+  if (rev) rev.textContent = won(t.revThisYear || 0);
 }
 
 // 고객사 카드 (동적 증가, 고객사별 색)
