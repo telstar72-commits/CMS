@@ -268,9 +268,6 @@ function renderMonthly(monthRows) {
           categoryPercentage: 0.6, barPercentage: 1.0, grouped: false },
         { type: "bar", label: "성과 (실제 수금)", data: perf, backgroundColor: "#178f8a", order: 4, yAxisID: "y",
           categoryPercentage: 0.36, barPercentage: 1.0, grouped: false },
-        { type: "line", label: "달성율", data: rate, borderColor: "#e8843c", backgroundColor: "#e8843c",
-          tension: 0.4, pointRadius: 4, pointBackgroundColor: "#fff", pointBorderColor: "#e8843c", pointBorderWidth: 2,
-          spanGaps: true, order: 1, yAxisID: "y1" },
       ]
     },
     options: {
@@ -278,16 +275,11 @@ function renderMonthly(monthRows) {
       interaction: { mode: "index", intersect: false },
       plugins: {
         legend: { position: "top", labels: { font: { size: 12 } } },
-        tooltip: { callbacks: { label: c =>
-          c.dataset.yAxisID === "y1"
-            ? c.dataset.label + ": " + (c.parsed.y == null ? "-" : c.parsed.y + "%")
-            : c.dataset.label + ": " + won(c.parsed.y)
-        } }
+        tooltip: { callbacks: { label: c => c.dataset.label + ": " + won(c.parsed.y) } }
       },
       scales: {
         x: { ticks: { autoSkip: false, maxRotation: 45, font: { size: 10 } } },
         y: { position: "left", beginAtZero: true, ticks: { callback: v => "₩" + eok(v) }, title: { display: true, text: "금액", font: { size: 11 } } },
-        y1: { position: "right", beginAtZero: true, grid: { drawOnChartArea: false }, ticks: { callback: v => v + "%" }, title: { display: true, text: "달성율", font: { size: 11 } } },
       }
     }
   });
