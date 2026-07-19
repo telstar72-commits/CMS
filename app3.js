@@ -143,7 +143,7 @@ function fileSortNum(name) {
 /* ===== 데이터 로드 (GitHub data 폴더 자동) ===== */
 async function fetchDataFolder() {
   const api = `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${GH_DATA_DIR}?ref=${GH_BRANCH}&t=${Date.now()}`;
-  const res = await fetch(api, { cache: "no-store", headers: { "Cache-Control": "no-cache" } });
+  const res = await fetch(api);
   if (!res.ok) {
     if (res.status === 404) return [];
     throw new Error("GitHub 응답 오류 " + res.status);
