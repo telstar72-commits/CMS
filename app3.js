@@ -846,6 +846,30 @@ function wireControls() {
   if (dModal) dModal.addEventListener("click", (e) => {
     if (e.target === dModal) closeDetailModal(); // 바깥(오버레이) 클릭만
   });
+
+  // 탭 전환
+  document.querySelectorAll(".tab-btn").forEach(btn => {
+    btn.addEventListener("click", () => switchPage(btn.dataset.page));
+  });
+
+  // 업로드 영역(점선 박스) 클릭도 파일 선택 열기
+  const upArea = el("upload-area");
+  if (upArea && upInput) upArea.addEventListener("click", () => upInput.click());
+}
+
+// 페이지(탭) 전환
+function switchPage(page) {
+  document.querySelectorAll(".tab-btn").forEach(b => {
+    b.classList.toggle("active", b.dataset.page === page);
+  });
+  document.querySelectorAll(".page").forEach(p => {
+    p.classList.toggle("hidden", p.id !== "page-" + page);
+  });
+  // 차트가 있는 페이지로 이동하면 리사이즈 (숨김 상태에서 그려진 차트 보정)
+  setTimeout(() => {
+    if (page === "dash") { if (custChart) custChart.resize(); if (projChart) projChart.resize(); }
+    if (page === "month") { if (monthChart) monthChart.resize(); }
+  }, 30);
 }
 
 wireControls();

@@ -25,6 +25,31 @@
   .upload-btn:hover{background:#0c3d68}
   .upload-btn:active{transform:scale(0.98)}
 
+  /* 탭 버튼 */
+  .tabs{margin-left:auto; display:flex; gap:6px; flex-wrap:wrap}
+  .tab-btn{background:#e8edf1; color:#5a6b7a; border:none; border-radius:8px; padding:8px 16px;
+    font-size:13px; font-weight:700; cursor:pointer; font-family:inherit; transition:background .12s}
+  .tab-btn:hover{background:#dbe3ea}
+  .tab-btn.active{background:var(--accent); color:#fff}
+  .tab-btn.tab-file{background:#0c3d68; color:#fff}
+  .tab-btn.tab-file.active{background:#082a48}
+  .tab-btn:active{transform:scale(0.98)}
+
+  /* 페이지 전환 */
+  .page.hidden{display:none}
+
+  /* 파일 업로드 영역 */
+  .upload-area{background:var(--card); border:2px dashed var(--line); border-radius:16px;
+    padding:48px 30px; text-align:center; cursor:pointer; transition:border-color .15s, background .15s}
+  .upload-area:hover{border-color:var(--accent); background:#f7fafd}
+  .upload-icon{font-size:44px; margin-bottom:12px}
+  .upload-msg{font-size:15px; font-weight:700; margin-bottom:8px}
+  .upload-hint{font-size:12.5px; color:var(--sub); line-height:1.6; margin-bottom:20px}
+  .upload-go{background:var(--accent); color:#fff; border:none; border-radius:8px; padding:11px 28px;
+    font-size:14px; font-weight:700; cursor:pointer; font-family:inherit}
+  .upload-go:hover{background:#0c3d68}
+  .upload-go:active{transform:scale(0.98)}
+
   .sec-title{font-size:15px; font-weight:800; margin:28px 0 14px; display:flex; align-items:center; gap:8px}
   .sec-title::before{content:""; width:4px; height:16px; background:var(--accent); border-radius:2px}
   .sec-title .muted{font-weight:600; color:var(--sub); font-size:12px}
@@ -159,7 +184,12 @@
   <header>
     <h1>Cash Flow Monitoring System</h1>
     <span class="boot" id="boot-status">불러오는 중...</span>
-    <button id="upload-btn" class="upload-btn">파일불러오기</button>
+    <nav class="tabs" id="tabs">
+      <button class="tab-btn active" data-page="dash">대시보드</button>
+      <button class="tab-btn" data-page="month">월별성과</button>
+      <button class="tab-btn" data-page="recv">미수금현황</button>
+      <button class="tab-btn tab-file" data-page="file">파일불러오기</button>
+    </nav>
     <input type="file" id="upload-input" accept=".xlsx,.xls,.csv" multiple style="display:none">
   </header>
 
@@ -170,80 +200,100 @@
 
   <div id="dashboard" class="hidden">
 
-    <!-- 1. 종합 -->
-    <div class="sec-title">종합 현황 <span class="muted">최신 파일 기준</span></div>
-    <div class="cards">
-      <div class="card total"><div class="label">총수주금액</div><div class="value" id="s-total">-</div></div>
-      <div class="card wait"><div class="label">수금대기 <small>(세금계산서 발행)</small></div><div class="value" id="s-wait">-</div></div>
-      <div class="card done"><div class="label">수금완료 <small>(수금액 합계)</small></div><div class="value" id="s-done">-</div></div>
-      <div class="card unpaid"><div class="label">현 미수금 <small>(미결제TC)</small></div><div class="value" id="s-unpaid">-</div></div>
-    </div>
-
-    <!-- 2. 고객사 카드 -->
-    <div class="sec-title">고객사별 현황</div>
-    <div class="ccards" id="cust-cards"></div>
-
-    <!-- 3+4. 고객사별 막대 (좌) + 프로젝트 진행율 (우) -->
-    <div class="cust-proj-grid">
-      <div class="cp-left">
-        <div class="sec-title">고객사별 세금계산서 발행 vs 실제 수금</div>
-        <div class="chart-box"><canvas id="custChart"></canvas></div>
+    <!-- ===== 페이지 1: 대시보드 ===== -->
+    <div class="page" id="page-dash">
+      <!-- 1. 종합 -->
+      <div class="sec-title">종합 현황 <span class="muted">최신 파일 기준</span></div>
+      <div class="cards">
+        <div class="card total"><div class="label">총수주금액</div><div class="value" id="s-total">-</div></div>
+        <div class="card wait"><div class="label">수금대기 <small>(세금계산서 발행)</small></div><div class="value" id="s-wait">-</div></div>
+        <div class="card done"><div class="label">수금완료 <small>(수금액 합계)</small></div><div class="value" id="s-done">-</div></div>
+        <div class="card unpaid"><div class="label">현 미수금 <small>(미결제TC)</small></div><div class="value" id="s-unpaid">-</div></div>
       </div>
-      <div class="cp-right">
-        <div class="sec-title">프로젝트 진행율 <span class="muted">수주 대비 수금</span>
-          <span class="proj-overall-inline" id="proj-overall">-</span>
-        </div>
-        <div class="proj-scroll">
-          <div class="proj-list" id="proj-list"></div>
-        </div>
-        <div class="proj-overall-sub" id="proj-overall-sub"></div>
-      </div>
-    </div>
 
-    <!-- 5. 월별 목표대비 성과 -->
-    <div class="sec-title">월별 목표대비 성과 <span class="muted">목표=세금계산서 발행 · 성과=실제 수금</span></div>
-    <div class="chart-box"><canvas id="monthChart"></canvas></div>
-    <div class="table-box">
-      <table id="month-table">
-        <thead><tr><th>월</th><th>목표(발행)</th><th>성과(수금)</th><th>달성율</th></tr></thead>
-        <tbody></tbody>
-      </table>
-    </div>
+      <!-- 2. 고객사 카드 -->
+      <div class="sec-title">고객사별 현황</div>
+      <div class="ccards" id="cust-cards"></div>
 
-    <div id="cashflow" class="hidden">
-      <div class="sec-title">미수금 · 미지급 현황 <span class="muted">미수금=고객사별 · 미지급=업체별</span></div>
-      <div class="rp-grid">
-        <div class="rp-col">
-          <div class="rp-head recv-head">
-            <span class="rp-col-title">미수금 현황</span>
-            <span class="rp-col-total recv" id="recv-total">-</span>
+      <!-- 3+4. 고객사별 막대 (좌) + 프로젝트 진행율 (우) -->
+      <div class="cust-proj-grid">
+        <div class="cp-left">
+          <div class="sec-title">고객사별 세금계산서 발행 vs 실제 수금</div>
+          <div class="chart-box"><canvas id="custChart"></canvas></div>
+        </div>
+        <div class="cp-right">
+          <div class="sec-title">프로젝트 진행율 <span class="muted">수주 대비 수금</span>
+            <span class="proj-overall-inline" id="proj-overall">-</span>
           </div>
-          <div class="rp-box" id="recv-list"></div>
-        </div>
-        <div class="rp-col">
-          <div class="rp-head pay-head">
-            <span class="rp-col-title">미지급 현황</span>
-            <span class="rp-col-total pay" id="pay-total">-</span>
+          <div class="proj-scroll">
+            <div class="proj-list" id="proj-list"></div>
           </div>
-          <div class="rp-box" id="pay-list"></div>
+          <div class="proj-overall-sub" id="proj-overall-sub"></div>
         </div>
       </div>
     </div>
 
-    <!-- 6. 저장 파일 (매출 / 매입 분리) -->
-    <div class="sec-title">저장된 데이터 파일</div>
-    <div class="saved-grid">
-      <div class="saved-col">
-        <div class="saved-col-title">매출자료 <span class="saved-col-sub">(자금관리)</span></div>
-        <div class="saved" id="sales-list"></div>
+    <!-- ===== 페이지 2: 월별성과 ===== -->
+    <div class="page hidden" id="page-month">
+      <div class="sec-title">월별 목표대비 성과 <span class="muted">목표=세금계산서 발행 · 성과=실제 수금</span></div>
+      <div class="chart-box"><canvas id="monthChart"></canvas></div>
+      <div class="table-box">
+        <table id="month-table">
+          <thead><tr><th>월</th><th>목표(발행)</th><th>성과(수금)</th><th>달성율</th></tr></thead>
+          <tbody></tbody>
+        </table>
       </div>
-      <div class="saved-col">
-        <div class="saved-col-title">매입자료</div>
-        <div class="saved" id="purchase-list"></div>
+    </div>
+
+    <!-- ===== 페이지 3: 미수금현황 ===== -->
+    <div class="page hidden" id="page-recv">
+      <div id="cashflow">
+        <div class="sec-title">미수금 · 미지급 현황 <span class="muted">미수금=고객사별 · 미지급=업체별</span></div>
+        <div class="rp-grid">
+          <div class="rp-col">
+            <div class="rp-head recv-head">
+              <span class="rp-col-title">미수금 현황</span>
+              <span class="rp-col-total recv" id="recv-total">-</span>
+            </div>
+            <div class="rp-box" id="recv-list"></div>
+          </div>
+          <div class="rp-col">
+            <div class="rp-head pay-head">
+              <span class="rp-col-title">미지급 현황</span>
+              <span class="rp-col-total pay" id="pay-total">-</span>
+            </div>
+            <div class="rp-box" id="pay-list"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 저장 파일 (매출 / 매입 분리) -->
+      <div class="sec-title">저장된 데이터 파일</div>
+      <div class="saved-grid">
+        <div class="saved-col">
+          <div class="saved-col-title">매출자료 <span class="saved-col-sub">(자금관리)</span></div>
+          <div class="saved" id="sales-list"></div>
+        </div>
+        <div class="saved-col">
+          <div class="saved-col-title">매입자료</div>
+          <div class="saved" id="purchase-list"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== 페이지 4: 파일불러오기 ===== -->
+    <div class="page hidden" id="page-file">
+      <div class="sec-title">파일 불러오기</div>
+      <div class="upload-area" id="upload-area">
+        <div class="upload-icon">📁</div>
+        <div class="upload-msg">여기를 클릭해 엑셀 파일을 선택하세요</div>
+        <div class="upload-hint">매출 파일(자금관리)과 매입 파일(파일명에 "매입" 포함) 모두 올릴 수 있습니다.<br>여러 개를 한 번에 선택할 수 있습니다.</div>
+        <button class="upload-go" id="upload-btn">파일 선택</button>
       </div>
     </div>
 
   </div>
+  <!-- END dashboard -->
 </div>
 
 <div id="modal" class="modal-overlay hidden">
