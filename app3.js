@@ -144,6 +144,24 @@ function isPurchaseFile(name) {
   return /매입/.test(name);
 }
 
+// 미지급 위험도 색 판정 (두 기준 중 더 위험한 쪽)
+//  - 발행월 종류 수: 3↑=빨강, 2=주황, 그외=검정
+//  - 가장 오래된 발행월 경과 개월(기준월 대비): 3↑=빨강, 2=주황, 그외=검정
+function payableRiskColor(monthsArr, baseYM) {
+  const count = monthsArr.length;
+  const oldest = monthsArr.slice().sort()[0];
+  let elapsed = 0;
+  if (oldest && baseYM) {
+    const [y1, m1] = oldest.split("-").map(Number);
+    const [y2, m2] = baseYM.split("-").map(Number);
+    elapsed = (y2 - y1) * 12 + (m2 - m1);
+  }
+  const lvlCount = count >= 3 ? 2 : count >= 2 ? 1 : 0;
+  const lvlElapsed = elapsed >= 3 ? 2 : elapsed >= 2 ? 1 : 0;
+  const lvl = Math.max(lvlCount, lvlElapsed);
+  return ["#16202c", "#d97706", "#dc2626"][lvl]; // 검정, 주황, 빨강
+}
+
 // 매입 파일 파싱: Summary (2) 시트에서 업체×월 상세 + 월별 합계
 // 반환: { monthly: {"2026-03": 합계}, detail: Map("업체|월" => 금액) }
 function parsePurchase(wb) {
@@ -407,11 +425,13 @@ function renderReceivablePayable(receivableByCust, payableByVendor) {
   if (recvList.length < MIN_ROWS) recvHtml += fillEmpty(MIN_ROWS - recvList.length);
   el("recv-list").innerHTML = recvHtml;
 
-  // 미지급 (업체별) — 전체 표시, 클릭 시 월별 상세
+  // 미지급 (업체별) — 전체 표시, 클릭 시 월별 상세, 위험도 색
   el("pay-total").textContent = won(payTotal);
-  let payHtml = payList.map(([name, v]) =>
-    `<div class="rp-row clickable" data-type="pay" data-name="${encodeURIComponent(name)}"><span class="rp-name">${name}</span><span class="rp-amt pay">${won(v)}</span></div>`
-  ).join("");
+  const payColor = window.__payableColor || {};
+  let payHtml = payList.map(([name, v]) => {
+    const color = payColor[name] || "#dc2626";
+    return `<div class="rp-row clickable" data-type="pay" data-name="${encodeURIComponent(name)}"><span class="rp-name">${name}</span><span class="rp-amt" style="color:${color}">${won(v)}</span></div>`;
+  }).join("");
   if (payList.length < MIN_ROWS) payHtml += fillEmpty(MIN_ROWS - payList.length);
   el("pay-list").innerHTML = payHtml;
 
@@ -683,15 +703,24 @@ async function boot() {
     // 업체별 미지급(줄 돈) = 최신 매입 파일의 업체별 발행액 합
     const payableByVendor = {};
     const payableDetailByVendor = {}; // 업체별 월별 상세 (팝업용)
+    const payableColorByVendor = {};  // 업체별 위험도 색
+    let purchaseBaseYM = null;        // 최신 매입 파일 기준월
     if (purchaseParsed.length > 0) {
       const latestP = purchaseParsed[purchaseParsed.length - 1];
+      purchaseBaseYM = latestP.file.mkey; // 파일명 날짜 → 기준월
       for (const [key, amt] of latestP.detail) {
         const [vendor, mk] = key.split("|");
         payableByVendor[vendor] = (payableByVendor[vendor] || 0) + amt;
         (payableDetailByVendor[vendor] = payableDetailByVendor[vendor] || {})[mk] = amt;
       }
+      // 업체별 색 판정
+      for (const vendor in payableDetailByVendor) {
+        const months = Object.keys(payableDetailByVendor[vendor]);
+        payableColorByVendor[vendor] = payableRiskColor(months, purchaseBaseYM);
+      }
     }
     window.__payableDetail = payableDetailByVendor;
+    window.__payableColor = payableColorByVendor;
 
     const latest = parsedList[parsedList.length - 1].data;
     const prev = parsedList.length >= 2 ? parsedList[parsedList.length - 2].data : null;
