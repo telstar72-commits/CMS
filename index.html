@@ -73,6 +73,7 @@
   th:first-child,td:first-child{text-align:left; font-weight:600}
   tbody tr{border-top:1px solid var(--line)}
   .num-total{color:var(--blue)} .num-done{color:var(--green)}
+  .num-target{color:#178f8a}
 
   /* 저장 파일 목록 */
   .saved{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:16px 18px}
@@ -136,12 +137,12 @@
     </div>
     <div class="proj-list" id="proj-list"></div>
 
-    <!-- 5. 월별 추이 -->
-    <div class="sec-title">월별 수금 추이</div>
+    <!-- 5. 월별 목표대비 성과 -->
+    <div class="sec-title">월별 목표대비 성과 <span class="muted">목표=세금계산서 발행 · 성과=실제 수금 · 2026.07~2027.06</span></div>
     <div class="chart-box"><canvas id="monthChart"></canvas></div>
     <div class="table-box">
       <table id="month-table">
-        <thead><tr><th>월</th><th>그 달 수금액</th><th>누적 수금완료</th></tr></thead>
+        <thead><tr><th>월</th><th>목표(발행)</th><th>성과(수금)</th><th>달성율</th></tr></thead>
         <tbody></tbody>
       </table>
     </div>

@@ -232,26 +232,55 @@ function renderProjects(projects) {
   }).join("");
 }
 
-// 월별 추이
+// 월별 목표대비 성과 (목표=발행액, 성과=실제수금, 달성율=성과/목표)
 function renderMonthly(monthRows) {
   const labels = monthRows.map(r => r.month);
-  const bar = monthRows.map(r => r.received);
-  const line = monthRows.map(r => r.cumDone);
+  const target = monthRows.map(r => r.target);
+  const perf = monthRows.map(r => r.perf);
+  const rate = monthRows.map(r =>
+    (r.target && r.target > 0 && r.perf != null) ? Math.round(r.perf / r.target * 100) : null
+  );
+
   if (monthChart) monthChart.destroy();
   monthChart = new Chart(el("monthChart"), {
-    data: { labels, datasets: [
-      { type: "bar", label: "그 달 수금액", data: bar, backgroundColor: "#16a34a", borderRadius: 4, order: 2 },
-      { type: "line", label: "누적 수금완료", data: line, borderColor: "#2563eb", backgroundColor: "#2563eb", tension: 0.3, pointRadius: 4, order: 1 },
-    ]},
-    options: { responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { position: "top", labels: { font: { size: 12 } } },
-        tooltip: { callbacks: { label: c => c.dataset.label + ": " + won(c.parsed.y) } } },
-      scales: { y: { beginAtZero: true, ticks: { callback: v => "₩" + eok(v) } } } }
+    data: {
+      labels,
+      datasets: [
+        { type: "bar", label: "목표 (세금계산서 발행)", data: target, backgroundColor: "#9ed4d1", order: 5, yAxisID: "y",
+          categoryPercentage: 0.6, barPercentage: 1.0, grouped: false },
+        { type: "bar", label: "성과 (실제 수금)", data: perf, backgroundColor: "#178f8a", order: 4, yAxisID: "y",
+          categoryPercentage: 0.36, barPercentage: 1.0, grouped: false },
+        { type: "line", label: "달성율", data: rate, borderColor: "#e8843c", backgroundColor: "#e8843c",
+          tension: 0.4, pointRadius: 4, pointBackgroundColor: "#fff", pointBorderColor: "#e8843c", pointBorderWidth: 2,
+          spanGaps: true, order: 1, yAxisID: "y1" },
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: "index", intersect: false },
+      plugins: {
+        legend: { position: "top", labels: { font: { size: 12 } } },
+        tooltip: { callbacks: { label: c =>
+          c.dataset.yAxisID === "y1"
+            ? c.dataset.label + ": " + (c.parsed.y == null ? "-" : c.parsed.y + "%")
+            : c.dataset.label + ": " + won(c.parsed.y)
+        } }
+      },
+      scales: {
+        x: { ticks: { autoSkip: false, maxRotation: 45, font: { size: 10 } } },
+        y: { position: "left", beginAtZero: true, ticks: { callback: v => "₩" + eok(v) }, title: { display: true, text: "금액", font: { size: 11 } } },
+        y1: { position: "right", beginAtZero: true, grid: { drawOnChartArea: false }, ticks: { callback: v => v + "%" }, title: { display: true, text: "달성율", font: { size: 11 } } },
+      }
+    }
   });
 
-  el("month-table").querySelector("tbody").innerHTML = monthRows.map(r =>
-    `<tr><td>${r.month}</td><td class="num-done">${won(r.received)}</td><td class="num-total">${won(r.cumDone)}</td></tr>`
-  ).join("");
+  // 표: 데이터 있는 달만
+  el("month-table").querySelector("tbody").innerHTML = monthRows
+    .filter(r => r.target != null || r.perf != null)
+    .map(r => {
+      const rt = (r.target && r.target > 0 && r.perf != null) ? Math.round(r.perf / r.target * 100) + "%" : "-";
+      return `<tr><td>${r.month}</td><td class="num-target">${won(r.target)}</td><td class="num-done">${won(r.perf)}</td><td>${rt}</td></tr>`;
+    }).join("");
 }
 
 // 저장된 파일 목록
@@ -293,19 +322,42 @@ async function boot() {
     // 4. 프로젝트 진행율
     renderProjects(latest.projects);
 
-    // 5. 월별 추이 (각 달 최신 파일 대표)
+    // 5. 월별 목표대비 성과 (2026-07부터 12개월 고정 축)
+    //    목표 = 그 달 대표파일의 세금계산서 발행액 / 성과 = 그 달 실제 수금액(전월 대비)
     const byMonth = {};
     for (const p of parsedList) { if (p.file.mkey) (byMonth[p.file.mkey] ||= []).push(p); }
-    const months = Object.keys(byMonth).sort();
+    for (const k in byMonth) byMonth[k].sort((a, b) => a.file.snum - b.file.snum);
+
+    // 고정 12개월 라벨 생성 (2026-07 ~ 2027-06)
+    const START_Y = 2026, START_M = 7;
+    const axis = [];
+    for (let i = 0; i < 12; i++) {
+      const mIdx = (START_M - 1 + i);
+      const y = START_Y + Math.floor(mIdx / 12);
+      const m = (mIdx % 12) + 1;
+      axis.push(`${y}-${String(m).padStart(2, "0")}`);
+    }
+
+    // 각 달의 대표 데이터 (있으면), 없으면 null
+    const repByMonth = {};
+    for (const k of Object.keys(byMonth)) {
+      repByMonth[k] = byMonth[k][byMonth[k].length - 1].data;
+    }
+
+    // 성과(실제수금) = 직전 '데이터 있는 달' 대비 발행칸에서 빠진 금액
     const monthRows = [];
     let prevRep = null;
-    for (const k of months) {
-      const arr = byMonth[k];
-      arr.sort((a, b) => a.file.snum - b.file.snum);
-      const rep = arr[arr.length - 1].data;
-      const mr = prevRep ? compareByCust(prevRep, rep).total : rep.totals.done;
-      monthRows.push({ month: k, received: mr, cumDone: rep.totals.done });
-      prevRep = rep;
+    for (const k of axis) {
+      const rep = repByMonth[k] || null;
+      let target = null, perf = null;
+      if (rep) {
+        target = rep.totals.wait; // 세금계산서 발행액 = 목표
+        // 성과 = 직전 데이터 있는 달 대비 발행칸에서 빠진 금액
+        // 첫 달(비교대상 없음)은 성과를 null로 둠 (달성율 왜곡 방지)
+        perf = prevRep ? compareByCust(prevRep, rep).total : null;
+        prevRep = rep;
+      }
+      monthRows.push({ month: k, target, perf });
     }
     renderMonthly(monthRows);
 
