@@ -151,7 +151,7 @@ async function fetchDataFolder() {
   const items = await res.json();
   const files = items
     .filter(f => f.type === "file" && /\.(xlsx|xls|csv)$/i.test(f.name))
-    .map(f => ({ name: f.name, url: f.download_url, snum: fileSortNum(f.name), mkey: monthKey(f.name) }))
+    .map(f => ({ name: f.name, url: f.download_url, path: f.path, sha: f.sha, snum: fileSortNum(f.name), mkey: monthKey(f.name) }))
     .sort((a, b) => a.snum - b.snum);
   return files;
 }
@@ -302,9 +302,11 @@ function renderMonthly(monthRows) {
 }
 
 // 저장된 파일 목록 (삭제 버튼 포함)
+let currentFiles = []; // 삭제 시 sha/path 참조용
 function renderFileList(files) {
+  currentFiles = files;
   el("saved-count").textContent = `${files.length}개`;
-  el("saved-list").innerHTML = files.slice().reverse().map(f => {
+  el("saved-list").innerHTML = files.slice().reverse().map((f, ri) => {
     const mk = f.mkey ? `<span class="badge">${f.mkey}</span>` : "";
     return `<div class="sf-row">
       <span class="sf-icon">📄</span>
@@ -313,7 +315,6 @@ function renderFileList(files) {
       <button class="sf-del" data-name="${encodeURIComponent(f.name)}">삭제</button>
     </div>`;
   }).join("");
-  // 삭제 버튼 이벤트
   el("saved-list").querySelectorAll(".sf-del").forEach(btn => {
     btn.addEventListener("click", () => {
       const name = decodeURIComponent(btn.dataset.name);
@@ -354,7 +355,8 @@ async function uploadFile(file) {
   const token = ensureToken();
   if (!token) return;
   const path = `${GH_DATA_DIR}/${file.name}`;
-  const api = `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${encodeURIComponent(path).replace(/%2F/g, "/")}`;
+  const encodedPath = path.split("/").map(encodeURIComponent).join("/");
+  const api = `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${encodedPath}`;
   const content = await fileToBase64(file);
 
   // 이미 있으면 sha 필요 (덮어쓰기)
@@ -379,26 +381,26 @@ async function uploadFile(file) {
   }
 }
 
-// 삭제: data 폴더의 파일 제거 (DELETE contents)
+// 삭제: 목록에서 받은 path/sha를 그대로 사용 (한글 인코딩 문제 방지)
 async function deleteFile(name) {
   const token = ensureToken();
   if (!token) return;
-  const path = `${GH_DATA_DIR}/${name}`;
-  const api = `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${encodeURIComponent(path).replace(/%2F/g, "/")}`;
-  // sha 조회
-  const chk = await fetch(api + `?ref=${GH_BRANCH}`, { headers: { Authorization: "Bearer " + token } });
-  if (!chk.ok) {
-    if (chk.status === 401) { setToken(""); throw new Error("토큰이 올바르지 않습니다."); }
-    throw new Error("파일을 찾지 못했습니다.");
-  }
-  const j = await chk.json();
+  // 목록에서 해당 파일의 path/sha 찾기
+  const f = currentFiles.find(x => x.name === name);
+  if (!f) throw new Error("파일 정보를 찾지 못했습니다. 새로고침 후 다시 시도해주세요.");
+
+  // GitHub이 준 path를 세그먼트별로 인코딩 (슬래시는 유지)
+  const encodedPath = f.path.split("/").map(encodeURIComponent).join("/");
+  const api = `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${encodedPath}`;
+
   const res = await fetch(api, {
     method: "DELETE",
     headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
-    body: JSON.stringify({ message: `Delete ${name}`, sha: j.sha, branch: GH_BRANCH }),
+    body: JSON.stringify({ message: `Delete ${name}`, sha: f.sha, branch: GH_BRANCH }),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
+    if (res.status === 401) { setToken(""); throw new Error("토큰이 올바르지 않습니다."); }
     throw new Error(err.message || ("삭제 실패 " + res.status));
   }
 }
