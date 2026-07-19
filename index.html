@@ -80,6 +80,11 @@
 
   /* 저장 파일 목록 */
   .saved{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:16px 18px}
+  .saved-grid{display:grid; grid-template-columns:1fr 1fr; gap:16px}
+  .saved-col-title{font-size:13.5px; font-weight:700; margin-bottom:8px; color:var(--ink)}
+  .saved-col-sub{font-size:11.5px; font-weight:600; color:var(--sub)}
+  .sf-empty{font-size:12.5px; color:var(--sub); text-align:center; padding:18px 0}
+  @media(max-width:760px){ .saved-grid{grid-template-columns:1fr} }
   .sf-row{display:flex; align-items:center; gap:8px; font-size:13px; padding:8px 0; border-bottom:0.5px solid var(--line)}
   .sf-row:last-child{border-bottom:none}
   .sf-icon{flex-shrink:0}
@@ -167,9 +172,29 @@
       </table>
     </div>
 
-    <!-- 6. 저장 파일 -->
-    <div class="sec-title">저장된 데이터 파일 <span class="muted" id="saved-count"></span></div>
-    <div class="saved" id="saved-list"></div>
+    <div id="cashflow" class="hidden">
+      <div class="sec-title">월별 매출 vs 매입 <span class="muted">매출=수금 · 매입=지급 · 순현금흐름=매출−매입</span></div>
+      <div class="chart-box"><canvas id="cashChart"></canvas></div>
+      <div class="table-box">
+        <table id="cash-table">
+          <thead><tr><th>월</th><th>매출(수금)</th><th>매입(지급)</th><th>순현금흐름</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- 6. 저장 파일 (매출 / 매입 분리) -->
+    <div class="sec-title">저장된 데이터 파일</div>
+    <div class="saved-grid">
+      <div class="saved-col">
+        <div class="saved-col-title">매출자료 <span class="saved-col-sub">(자금관리)</span></div>
+        <div class="saved" id="sales-list"></div>
+      </div>
+      <div class="saved-col">
+        <div class="saved-col-title">매입자료</div>
+        <div class="saved" id="purchase-list"></div>
+      </div>
+    </div>
 
   </div>
 </div>

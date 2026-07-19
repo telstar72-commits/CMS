@@ -139,6 +139,74 @@ function fileSortNum(name) {
   const m = name.match(/(\d{6,8})/);
   return m ? parseInt(m[1]) : 0;
 }
+// 파일명에 '매입'이 있으면 매입(지급) 파일
+function isPurchaseFile(name) {
+  return /매입/.test(name);
+}
+
+// 매입 파일 파싱: Summary (2) 시트에서 업체×월 상세 + 월별 합계
+// 반환: { monthly: {"2026-03": 합계}, detail: Map("업체|월" => 금액) }
+function parsePurchase(wb) {
+  // 지급 반영 시트 우선순위: 매입자료 → Sheet2 → Summary (2) → 첫 시트
+  let sheetName = null;
+  for (const cand of ["매입자료", "Sheet2", "Summary (2)"]) {
+    if (wb.SheetNames.includes(cand)) { sheetName = cand; break; }
+  }
+  if (!sheetName) sheetName = wb.SheetNames[0];
+  const ws = wb.Sheets[sheetName];
+  const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "", raw: true });
+
+  // 월 헤더 행 찾기: "26-03" 형태가 2개 이상 있는 행
+  let hr = -1, monthCols = {};
+  for (let r = 0; r < Math.min(rows.length, 12); r++) {
+    const found = {};
+    rows[r].forEach((cell, c) => {
+      const m = String(cell).match(/^(\d{2})-(\d{2})$/);
+      if (m) found[c] = `20${m[1]}-${m[2]}`;
+    });
+    if (Object.keys(found).length >= 2) { hr = r; monthCols = found; break; }
+  }
+  if (hr < 0) return { monthly: {}, detail: new Map() };
+
+  // 업체명(라벨) 컬럼 = 월 컬럼 중 가장 앞의 바로 앞 컬럼
+  const firstMonthCol = Math.min(...Object.keys(monthCols).map(Number));
+  const labelCol = firstMonthCol - 1 >= 0 ? firstMonthCol - 1 : 0;
+
+  const monthly = {};
+  for (const mk of Object.values(monthCols)) monthly[mk] = 0;
+  const detail = new Map(); // "업체|월" => 금액
+
+  for (let r = hr + 1; r < rows.length; r++) {
+    const label = String(rows[r][labelCol] ?? "").trim();
+    if (!label || label === "총합계" || label === "합계" || label.includes("비어 있음")) continue;
+    for (const c in monthCols) {
+      const v = rows[r][c];
+      if (typeof v === "number" && v !== 0) {
+        const mk = monthCols[c];
+        monthly[mk] += v;
+        detail.set(label + "|" + mk, v);
+      }
+    }
+  }
+  return { monthly, detail };
+}
+
+// 두 매입 파일 비교: 이전엔 있던 발행 건이 이번에 빠짐/감소 = 그 사이 지급 완료
+// 반환: { total, byMonth: {"2026-06": 지급액} } — 발행일(월)별로 집계
+function comparePurchase(prevDetail, currDetail) {
+  let total = 0;
+  const byMonth = {};
+  for (const [key, amt] of prevDetail) {
+    const now = currDetail.get(key) || 0;
+    if (now < amt) {
+      const paid = amt - now;
+      total += paid;
+      const mk = key.split("|")[1]; // "업체|2026-06" → "2026-06"
+      byMonth[mk] = (byMonth[mk] || 0) + paid;
+    }
+  }
+  return { total, byMonth };
+}
 
 /* ===== 데이터 로드 (GitHub data 폴더 자동) ===== */
 async function fetchDataFolder() {
@@ -151,7 +219,7 @@ async function fetchDataFolder() {
   const items = await res.json();
   const files = items
     .filter(f => f.type === "file" && /\.(xlsx|xls|csv)$/i.test(f.name))
-    .map(f => ({ name: f.name, url: f.download_url, path: f.path, sha: f.sha, snum: fileSortNum(f.name), mkey: monthKey(f.name) }))
+    .map(f => ({ name: f.name, url: f.download_url, path: f.path, sha: f.sha, snum: fileSortNum(f.name), mkey: monthKey(f.name), purchase: isPurchaseFile(f.name) }))
     .sort((a, b) => a.snum - b.snum);
   return files;
 }
@@ -162,6 +230,13 @@ async function loadParsed(file) {
   const ws = wb.Sheets[wb.SheetNames[0]];
   const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "", raw: true });
   return parseFile(rows);
+}
+// 매입 파일 로드 → 월별 지급액
+async function loadPurchase(file) {
+  const dl = await fetch(file.url);
+  const buf = await dl.arrayBuffer();
+  const wb = XLSX.read(buf, { type: "array", cellDates: true });
+  return parsePurchase(wb);
 }
 
 /* ===== 렌더링 ===== */
@@ -293,12 +368,58 @@ function renderMonthly(monthRows) {
     }).join("");
 }
 
-// 저장된 파일 목록 (삭제 버튼 포함)
+// 월별 매출 vs 매입 (순현금흐름)
+let cashChart;
+function renderCashflow(cashRows) {
+  const box = el("cashflow");
+  const hasData = cashRows.some(r => r.sales != null || r.purchase != null);
+  if (!hasData) { if (box) box.classList.add("hidden"); return; }
+  if (box) box.classList.remove("hidden");
+
+  const labels = cashRows.map(r => r.month);
+  const sales = cashRows.map(r => r.sales);
+  const purchase = cashRows.map(r => r.purchase);
+  const net = cashRows.map(r => r.net);
+
+  if (cashChart) cashChart.destroy();
+  cashChart = new Chart(el("cashChart"), {
+    data: {
+      labels,
+      datasets: [
+        { type: "bar", label: "매출 (수금)", data: sales, backgroundColor: "#2563eb", borderRadius: 3, order: 3 },
+        { type: "bar", label: "매입 (지급)", data: purchase, backgroundColor: "#dc2626", borderRadius: 3, order: 2 },
+        { type: "line", label: "순현금흐름", data: net, borderColor: "#16a34a", backgroundColor: "#16a34a",
+          tension: 0.3, pointRadius: 4, pointBackgroundColor: "#fff", pointBorderColor: "#16a34a", pointBorderWidth: 2,
+          spanGaps: true, order: 1 },
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: "index", intersect: false },
+      plugins: {
+        legend: { position: "top", labels: { font: { size: 12 } } },
+        tooltip: { callbacks: { label: c => c.dataset.label + ": " + won(c.parsed.y) } }
+      },
+      scales: {
+        x: { ticks: { autoSkip: false, maxRotation: 45, font: { size: 10 } } },
+        y: { beginAtZero: false, ticks: { callback: v => "₩" + eok(v) } },
+      }
+    }
+  });
+
+  // 표
+  el("cash-table").querySelector("tbody").innerHTML = cashRows
+    .filter(r => r.sales != null || r.purchase != null)
+    .map(r => `<tr><td>${r.month}</td><td class="num-total">${won(r.sales)}</td><td class="num-unpaid">${won(r.purchase)}</td><td class="${r.net >= 0 ? "num-done" : "num-unpaid"}">${won(r.net)}</td></tr>`)
+    .join("");
+}
+
+// 저장된 파일 목록 (매출/매입 분리, 삭제 버튼 포함)
 let currentFiles = []; // 삭제 시 sha/path 참조용
 function renderFileList(files) {
   currentFiles = files;
-  el("saved-count").textContent = `${files.length}개`;
-  el("saved-list").innerHTML = files.slice().reverse().map((f, ri) => {
+
+  const rowHtml = f => {
     const mk = f.mkey ? `<span class="badge">${f.mkey}</span>` : "";
     return `<div class="sf-row">
       <span class="sf-icon">📄</span>
@@ -306,8 +427,20 @@ function renderFileList(files) {
       ${mk}
       <button class="sf-del" data-name="${encodeURIComponent(f.name)}">삭제</button>
     </div>`;
-  }).join("");
-  el("saved-list").querySelectorAll(".sf-del").forEach(btn => {
+  };
+
+  const salesFiles = files.filter(f => !f.purchase).slice().reverse();
+  const purchaseFiles = files.filter(f => f.purchase).slice().reverse();
+
+  el("sales-list").innerHTML = salesFiles.length
+    ? salesFiles.map(rowHtml).join("")
+    : `<div class="sf-empty">아직 매출(자금관리) 파일이 없습니다.</div>`;
+  el("purchase-list").innerHTML = purchaseFiles.length
+    ? purchaseFiles.map(rowHtml).join("")
+    : `<div class="sf-empty">아직 매입 파일이 없습니다.</div>`;
+
+  // 삭제 버튼 이벤트 (양쪽 모두)
+  document.querySelectorAll("#sales-list .sf-del, #purchase-list .sf-del").forEach(btn => {
     btn.addEventListener("click", () => {
       const name = decodeURIComponent(btn.dataset.name);
       openDeleteConfirm(name);
@@ -465,8 +598,41 @@ async function boot() {
     }
 
     status.textContent = `${files.length}개 파일 불러오는 중...`;
+
+    // 매출 파일과 매입 파일 분리
+    const salesFiles = files.filter(f => !f.purchase);
+    const purchaseFiles = files.filter(f => f.purchase);
+
+    if (salesFiles.length === 0) {
+      status.textContent = "";
+      el("empty-note").classList.remove("hidden");
+      return;
+    }
+
     const parsedList = [];
-    for (const f of files) parsedList.push({ file: f, data: await loadParsed(f) });
+    for (const f of salesFiles) parsedList.push({ file: f, data: await loadParsed(f) });
+
+    // 매입: 파일별로 파싱 (발행 상세 + 월별 발행액), 시간순 정렬
+    const purchaseParsed = [];
+    for (const f of purchaseFiles) {
+      const p = await loadPurchase(f);
+      purchaseParsed.push({ file: f, ...p });
+    }
+    purchaseParsed.sort((a, b) => a.file.snum - b.file.snum);
+
+    // 월별 매입 발행액(목표) = 최신 매입 파일 기준
+    const purchaseIssuedByMonth = {};
+    if (purchaseParsed.length > 0) {
+      const latestP = purchaseParsed[purchaseParsed.length - 1];
+      Object.assign(purchaseIssuedByMonth, latestP.monthly);
+    }
+    // 월별 매입 실제지급액 = 직전 매입 파일 대비 빠진 금액 (발행일 월별)
+    let purchasePaidByMonth = {};
+    if (purchaseParsed.length >= 2) {
+      const pp = purchaseParsed[purchaseParsed.length - 2];
+      const cp = purchaseParsed[purchaseParsed.length - 1];
+      purchasePaidByMonth = comparePurchase(pp.detail, cp.detail).byMonth;
+    }
 
     const latest = parsedList[parsedList.length - 1].data;
     const prev = parsedList.length >= 2 ? parsedList[parsedList.length - 2].data : null;
@@ -489,11 +655,11 @@ async function boot() {
     for (const p of parsedList) { if (p.file.mkey) (byMonth[p.file.mkey] ||= []).push(p); }
     for (const k in byMonth) byMonth[k].sort((a, b) => a.file.snum - b.file.snum);
 
-    // 시작 월 = 데이터가 있는 가장 이른 달 (없으면 현재 연-월)
-    const dataMonths = Object.keys(byMonth).sort();
+    // 시작 월 = 매출/매입 데이터 중 가장 이른 달 (없으면 현재 연-월)
+    const allMonths = [...Object.keys(byMonth), ...Object.keys(purchaseIssuedByMonth)].sort();
     let START_Y, START_M;
-    if (dataMonths.length > 0) {
-      const [y, m] = dataMonths[0].split("-").map(Number);
+    if (allMonths.length > 0) {
+      const [y, m] = allMonths[0].split("-").map(Number);
       START_Y = y; START_M = m;
     } else {
       const now = new Date();
@@ -539,6 +705,19 @@ async function boot() {
       monthRows.push({ month: k, target, perf });
     }
     renderMonthly(monthRows);
+
+    // 5-2. 월별 매출 vs 매입 (순현금흐름)
+    //   매출 = 그 달 실제수금(성과), 매입 = 그 달 실제지급, 순현금 = 매출 - 매입
+    const cashRows = axis.map(k => {
+      const row = monthRows.find(r => r.month === k);
+      const salesVal = row && row.perf != null ? row.perf : null;   // 실제 수금
+      const paidVal = purchasePaidByMonth[k] != null ? purchasePaidByMonth[k] : null; // 실제 지급
+      const hasAny = salesVal != null || paidVal != null;
+      if (!hasAny) return { month: k, sales: null, purchase: null, net: null };
+      const s = salesVal || 0, p = paidVal || 0;
+      return { month: k, sales: s, purchase: p, net: s - p };
+    });
+    renderCashflow(cashRows);
 
     // 6. 저장 파일 목록
     renderFileList(files);
