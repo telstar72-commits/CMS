@@ -80,6 +80,19 @@
 
   /* 저장 파일 목록 */
   .saved{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:16px 18px}
+  .rp-grid{display:grid; grid-template-columns:1fr 1fr; gap:16px}
+  .rp-head{display:flex; justify-content:space-between; align-items:baseline; margin-bottom:8px}
+  .rp-col-title{font-size:13.5px; font-weight:700}
+  .rp-col-total{font-size:17px; font-weight:800}
+  .rp-col-total.recv{color:var(--green)} .rp-col-total.pay{color:var(--red)}
+  .rp-box{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:6px 16px}
+  .rp-row{display:flex; justify-content:space-between; align-items:center; padding:9px 0; border-bottom:0.5px solid var(--line)}
+  .rp-row:last-child{border-bottom:none}
+  .rp-name{font-size:13px; display:flex; align-items:center; gap:7px}
+  .rp-dot{width:9px; height:9px; border-radius:50%; display:inline-block; flex-shrink:0}
+  .rp-amt{font-size:13px; font-weight:700}
+  .rp-amt.recv{color:var(--green)} .rp-amt.pay{color:var(--red)}
+  @media(max-width:760px){ .rp-grid{grid-template-columns:1fr} }
   .saved-grid{display:grid; grid-template-columns:1fr 1fr; gap:16px}
   .saved-col-title{font-size:13.5px; font-weight:700; margin-bottom:8px; color:var(--ink)}
   .saved-col-sub{font-size:11.5px; font-weight:600; color:var(--sub)}
@@ -173,13 +186,22 @@
     </div>
 
     <div id="cashflow" class="hidden">
-      <div class="sec-title">월별 매출 vs 매입 <span class="muted">매출=수금 · 매입=지급 · 순현금흐름=매출−매입</span></div>
-      <div class="chart-box"><canvas id="cashChart"></canvas></div>
-      <div class="table-box">
-        <table id="cash-table">
-          <thead><tr><th>월</th><th>매출(수금)</th><th>매입(지급)</th><th>순현금흐름</th></tr></thead>
-          <tbody></tbody>
-        </table>
+      <div class="sec-title">받을 돈 · 줄 돈 <span class="muted">받을 돈=고객사별 미수 · 줄 돈=업체별 미지급</span></div>
+      <div class="rp-grid">
+        <div class="rp-col">
+          <div class="rp-head recv-head">
+            <span class="rp-col-title">받을 돈 (미수금)</span>
+            <span class="rp-col-total recv" id="recv-total">-</span>
+          </div>
+          <div class="rp-box" id="recv-list"></div>
+        </div>
+        <div class="rp-col">
+          <div class="rp-head pay-head">
+            <span class="rp-col-title">줄 돈 (미지급)</span>
+            <span class="rp-col-total pay" id="pay-total">-</span>
+          </div>
+          <div class="rp-box" id="pay-list"></div>
+        </div>
       </div>
     </div>
 

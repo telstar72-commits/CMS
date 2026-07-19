@@ -368,50 +368,48 @@ function renderMonthly(monthRows) {
     }).join("");
 }
 
-// 월별 매출 vs 매입 (순현금흐름)
-let cashChart;
-function renderCashflow(cashRows) {
+// 받을 돈(고객사별 미수) / 줄 돈(업체별 미지급)
+function renderReceivablePayable(receivableByCust, payableByVendor) {
   const box = el("cashflow");
-  const hasData = cashRows.some(r => r.sales != null || r.purchase != null);
+  const recvList = Object.entries(receivableByCust).sort((a, b) => b[1] - a[1]);
+  const payList = Object.entries(payableByVendor).sort((a, b) => b[1] - a[1]);
+  const hasData = recvList.length > 0 || payList.length > 0;
   if (!hasData) { if (box) box.classList.add("hidden"); return; }
   if (box) box.classList.remove("hidden");
 
-  const labels = cashRows.map(r => r.month);
-  const sales = cashRows.map(r => r.sales);
-  const purchase = cashRows.map(r => r.purchase);
-  const net = cashRows.map(r => r.net);
+  const recvTotal = recvList.reduce((s, [, v]) => s + v, 0);
+  const payTotal = payList.reduce((s, [, v]) => s + v, 0);
 
-  if (cashChart) cashChart.destroy();
-  cashChart = new Chart(el("cashChart"), {
-    data: {
-      labels,
-      datasets: [
-        { type: "bar", label: "매출 (수금)", data: sales, backgroundColor: "#2563eb", borderRadius: 3, order: 3 },
-        { type: "bar", label: "매입 (지급)", data: purchase, backgroundColor: "#dc2626", borderRadius: 3, order: 2 },
-        { type: "line", label: "순현금흐름", data: net, borderColor: "#16a34a", backgroundColor: "#16a34a",
-          tension: 0.3, pointRadius: 4, pointBackgroundColor: "#fff", pointBorderColor: "#16a34a", pointBorderWidth: 2,
-          spanGaps: true, order: 1 },
-      ]
-    },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      interaction: { mode: "index", intersect: false },
-      plugins: {
-        legend: { position: "top", labels: { font: { size: 12 } } },
-        tooltip: { callbacks: { label: c => c.dataset.label + ": " + won(c.parsed.y) } }
-      },
-      scales: {
-        x: { ticks: { autoSkip: false, maxRotation: 45, font: { size: 10 } } },
-        y: { beginAtZero: false, ticks: { callback: v => "₩" + eok(v) } },
-      }
+  // 받을 돈 (고객사별) — 고객사 색 사용
+  el("recv-total").textContent = won(recvTotal);
+  el("recv-list").innerHTML = recvList.length
+    ? recvList.map(([name, v]) => {
+        const c = custColor(name);
+        return `<div class="rp-row">
+          <span class="rp-name"><span class="rp-dot" style="background:${c.solid}"></span>${name}</span>
+          <span class="rp-amt recv">${won(v)}</span>
+        </div>`;
+      }).join("")
+    : `<div class="sf-empty">받을 돈이 없습니다.</div>`;
+
+  // 줄 돈 (업체별) — 상위 10개 + 나머지 합산
+  el("pay-total").textContent = won(payTotal);
+  const TOP = 10;
+  let payHtml = "";
+  if (payList.length === 0) {
+    payHtml = `<div class="sf-empty">줄 돈이 없습니다.</div>`;
+  } else {
+    const top = payList.slice(0, TOP);
+    const rest = payList.slice(TOP);
+    payHtml = top.map(([name, v]) =>
+      `<div class="rp-row"><span class="rp-name">${name}</span><span class="rp-amt pay">${won(v)}</span></div>`
+    ).join("");
+    if (rest.length > 0) {
+      const restSum = rest.reduce((s, [, v]) => s + v, 0);
+      payHtml += `<div class="rp-row"><span class="rp-name" style="color:var(--sub)">외 ${rest.length}곳</span><span class="rp-amt pay">${won(restSum)}</span></div>`;
     }
-  });
-
-  // 표
-  el("cash-table").querySelector("tbody").innerHTML = cashRows
-    .filter(r => r.sales != null || r.purchase != null)
-    .map(r => `<tr><td>${r.month}</td><td class="num-total">${won(r.sales)}</td><td class="num-unpaid">${won(r.purchase)}</td><td class="${r.net >= 0 ? "num-done" : "num-unpaid"}">${won(r.net)}</td></tr>`)
-    .join("");
+  }
+  el("pay-list").innerHTML = payHtml;
 }
 
 // 저장된 파일 목록 (매출/매입 분리, 삭제 버튼 포함)
@@ -633,6 +631,15 @@ async function boot() {
       const cp = purchaseParsed[purchaseParsed.length - 1];
       purchasePaidByMonth = comparePurchase(pp.detail, cp.detail).byMonth;
     }
+    // 업체별 미지급(줄 돈) = 최신 매입 파일의 업체별 발행액 합
+    const payableByVendor = {};
+    if (purchaseParsed.length > 0) {
+      const latestP = purchaseParsed[purchaseParsed.length - 1];
+      for (const [key, amt] of latestP.detail) {
+        const vendor = key.split("|")[0];
+        payableByVendor[vendor] = (payableByVendor[vendor] || 0) + amt;
+      }
+    }
 
     const latest = parsedList[parsedList.length - 1].data;
     const prev = parsedList.length >= 2 ? parsedList[parsedList.length - 2].data : null;
@@ -706,18 +713,15 @@ async function boot() {
     }
     renderMonthly(monthRows);
 
-    // 5-2. 월별 매출 vs 매입 (순현금흐름)
-    //   매출 = 그 달 실제수금(성과), 매입 = 그 달 실제지급, 순현금 = 매출 - 매입
-    const cashRows = axis.map(k => {
-      const row = monthRows.find(r => r.month === k);
-      const salesVal = row && row.perf != null ? row.perf : null;   // 실제 수금
-      const paidVal = purchasePaidByMonth[k] != null ? purchasePaidByMonth[k] : null; // 실제 지급
-      const hasAny = salesVal != null || paidVal != null;
-      if (!hasAny) return { month: k, sales: null, purchase: null, net: null };
-      const s = salesVal || 0, p = paidVal || 0;
-      return { month: k, sales: s, purchase: p, net: s - p };
-    });
-    renderCashflow(cashRows);
+    // 5-2. 받을 돈(고객사별 미수) / 줄 돈(업체별 미지급)
+    //   받을 돈 = 고객사별 미수금(latest.byCust[].unpaid)
+    //   줄 돈 = 최신 매입 파일 업체별 발행액(payableByVendor)
+    const receivableByCust = {};
+    for (const name of latest.order) {
+      const v = latest.byCust[name];
+      if (v && v.unpaid > 0) receivableByCust[name] = v.unpaid;
+    }
+    renderReceivablePayable(receivableByCust, payableByVendor);
 
     // 6. 저장 파일 목록
     renderFileList(files);
