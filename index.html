@@ -90,9 +90,10 @@
   .rp-col-title{font-size:13.5px; font-weight:700}
   .rp-col-total{font-size:17px; font-weight:800}
   .rp-col-total.recv{color:var(--green)} .rp-col-total.pay{color:var(--red)}
-  .rp-box{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:6px 16px}
-  .rp-row{display:flex; justify-content:space-between; align-items:center; padding:9px 0; border-bottom:0.5px solid var(--line)}
+  .rp-box{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:0 16px; height:322px; overflow-y:auto}
+  .rp-row{display:flex; justify-content:space-between; align-items:center; height:46px; border-bottom:0.5px solid var(--line); box-sizing:border-box}
   .rp-row:last-child{border-bottom:none}
+  .rp-row.empty{visibility:hidden}
   .rp-name{font-size:13px; display:flex; align-items:center; gap:7px}
   .rp-dot{width:9px; height:9px; border-radius:50%; display:inline-block; flex-shrink:0}
   .rp-amt{font-size:13px; font-weight:700}
@@ -191,18 +192,18 @@
     </div>
 
     <div id="cashflow" class="hidden">
-      <div class="sec-title">받을 돈 · 줄 돈 <span class="muted">받을 돈=고객사별 미수 · 줄 돈=업체별 미지급</span></div>
+      <div class="sec-title">미수금 · 미지급 현황 <span class="muted">미수금=고객사별 · 미지급=업체별</span></div>
       <div class="rp-grid">
         <div class="rp-col">
           <div class="rp-head recv-head">
-            <span class="rp-col-title">받을 돈 (미수금)</span>
+            <span class="rp-col-title">미수금 현황</span>
             <span class="rp-col-total recv" id="recv-total">-</span>
           </div>
           <div class="rp-box" id="recv-list"></div>
         </div>
         <div class="rp-col">
           <div class="rp-head pay-head">
-            <span class="rp-col-title">줄 돈 (미지급)</span>
+            <span class="rp-col-title">미지급 현황</span>
             <span class="rp-col-total pay" id="pay-total">-</span>
           </div>
           <div class="rp-box" id="pay-list"></div>

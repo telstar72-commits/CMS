@@ -375,7 +375,7 @@ function renderMonthly(monthRows) {
     }).join("");
 }
 
-// 받을 돈(고객사별 미수) / 줄 돈(업체별 미지급)
+// 미수금 현황(고객사별) / 미지급 현황(업체별)
 function renderReceivablePayable(receivableByCust, payableByVendor) {
   const box = el("cashflow");
   const recvList = Object.entries(receivableByCust).sort((a, b) => b[1] - a[1]);
@@ -386,36 +386,33 @@ function renderReceivablePayable(receivableByCust, payableByVendor) {
 
   const recvTotal = recvList.reduce((s, [, v]) => s + v, 0);
   const payTotal = payList.reduce((s, [, v]) => s + v, 0);
+  const MIN_ROWS = 7; // 기본 7칸
 
-  // 받을 돈 (고객사별) — 고객사 색 사용
+  // 빈 행 채우기 (항목이 7개 미만일 때)
+  const fillEmpty = (count) => {
+    let html = "";
+    for (let i = 0; i < count; i++) html += `<div class="rp-row empty"><span class="rp-name">-</span><span class="rp-amt">-</span></div>`;
+    return html;
+  };
+
+  // 미수금 (고객사별) — 고객사 색
   el("recv-total").textContent = won(recvTotal);
-  el("recv-list").innerHTML = recvList.length
-    ? recvList.map(([name, v]) => {
-        const c = custColor(name);
-        return `<div class="rp-row">
-          <span class="rp-name"><span class="rp-dot" style="background:${c.solid}"></span>${name}</span>
-          <span class="rp-amt recv">${won(v)}</span>
-        </div>`;
-      }).join("")
-    : `<div class="sf-empty">받을 돈이 없습니다.</div>`;
+  let recvHtml = recvList.map(([name, v]) => {
+    const c = custColor(name);
+    return `<div class="rp-row">
+      <span class="rp-name"><span class="rp-dot" style="background:${c.solid}"></span>${name}</span>
+      <span class="rp-amt recv">${won(v)}</span>
+    </div>`;
+  }).join("");
+  if (recvList.length < MIN_ROWS) recvHtml += fillEmpty(MIN_ROWS - recvList.length);
+  el("recv-list").innerHTML = recvHtml;
 
-  // 줄 돈 (업체별) — 상위 10개 + 나머지 합산
+  // 미지급 (업체별) — 전체 표시, 7칸 넘으면 스크롤
   el("pay-total").textContent = won(payTotal);
-  const TOP = 10;
-  let payHtml = "";
-  if (payList.length === 0) {
-    payHtml = `<div class="sf-empty">줄 돈이 없습니다.</div>`;
-  } else {
-    const top = payList.slice(0, TOP);
-    const rest = payList.slice(TOP);
-    payHtml = top.map(([name, v]) =>
-      `<div class="rp-row"><span class="rp-name">${name}</span><span class="rp-amt pay">${won(v)}</span></div>`
-    ).join("");
-    if (rest.length > 0) {
-      const restSum = rest.reduce((s, [, v]) => s + v, 0);
-      payHtml += `<div class="rp-row"><span class="rp-name" style="color:var(--sub)">외 ${rest.length}곳</span><span class="rp-amt pay">${won(restSum)}</span></div>`;
-    }
-  }
+  let payHtml = payList.map(([name, v]) =>
+    `<div class="rp-row"><span class="rp-name">${name}</span><span class="rp-amt pay">${won(v)}</span></div>`
+  ).join("");
+  if (payList.length < MIN_ROWS) payHtml += fillEmpty(MIN_ROWS - payList.length);
   el("pay-list").innerHTML = payHtml;
 }
 
