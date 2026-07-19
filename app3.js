@@ -301,13 +301,149 @@ function renderMonthly(monthRows) {
     }).join("");
 }
 
-// 저장된 파일 목록
+// 저장된 파일 목록 (삭제 버튼 포함)
 function renderFileList(files) {
   el("saved-count").textContent = `${files.length}개`;
   el("saved-list").innerHTML = files.slice().reverse().map(f => {
     const mk = f.mkey ? `<span class="badge">${f.mkey}</span>` : "";
-    return `<div class="sf-row">📄 <span class="sf-name">${f.name}</span> ${mk}</div>`;
+    return `<div class="sf-row">
+      <span class="sf-icon">📄</span>
+      <span class="sf-name">${f.name}</span>
+      ${mk}
+      <button class="sf-del" data-name="${encodeURIComponent(f.name)}">삭제</button>
+    </div>`;
   }).join("");
+  // 삭제 버튼 이벤트
+  el("saved-list").querySelectorAll(".sf-del").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const name = decodeURIComponent(btn.dataset.name);
+      openDeleteConfirm(name);
+    });
+  });
+}
+
+/* ===== GitHub 쓰기 (업로드/삭제) — 토큰 필요 ===== */
+const TOKEN_KEY = "cms_gh_token";
+function getToken() { try { return window.sessionStorage.getItem(TOKEN_KEY) || ""; } catch { return ""; } }
+function setToken(t) { try { window.sessionStorage.setItem(TOKEN_KEY, t); } catch {} }
+
+// 토큰 확보 (없으면 입력 요청)
+function ensureToken() {
+  let t = getToken();
+  if (t) return t;
+  t = window.prompt("GitHub 접근 토큰을 입력하세요.\n(한 번 입력하면 이 브라우저에서 계속 기억됩니다)");
+  if (t) { setToken(t.trim()); return t.trim(); }
+  return "";
+}
+
+// 파일을 base64로 변환
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const b64 = reader.result.split(",")[1];
+      resolve(b64);
+    };
+    reader.onerror = () => reject(new Error("파일 읽기 실패"));
+    reader.readAsDataURL(file);
+  });
+}
+
+// 업로드: data 폴더에 파일 저장 (PUT contents)
+async function uploadFile(file) {
+  const token = ensureToken();
+  if (!token) return;
+  const path = `${GH_DATA_DIR}/${file.name}`;
+  const api = `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${encodeURIComponent(path).replace(/%2F/g, "/")}`;
+  const content = await fileToBase64(file);
+
+  // 이미 있으면 sha 필요 (덮어쓰기)
+  let sha = null;
+  try {
+    const chk = await fetch(api + `?ref=${GH_BRANCH}`, { headers: { Authorization: "Bearer " + token } });
+    if (chk.ok) { const j = await chk.json(); sha = j.sha; }
+  } catch {}
+
+  const body = { message: `Upload ${file.name}`, content, branch: GH_BRANCH };
+  if (sha) body.sha = sha;
+
+  const res = await fetch(api, {
+    method: "PUT",
+    headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    if (res.status === 401) { setToken(""); throw new Error("토큰이 올바르지 않습니다. 다시 시도해주세요."); }
+    throw new Error(err.message || ("업로드 실패 " + res.status));
+  }
+}
+
+// 삭제: data 폴더의 파일 제거 (DELETE contents)
+async function deleteFile(name) {
+  const token = ensureToken();
+  if (!token) return;
+  const path = `${GH_DATA_DIR}/${name}`;
+  const api = `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${encodeURIComponent(path).replace(/%2F/g, "/")}`;
+  // sha 조회
+  const chk = await fetch(api + `?ref=${GH_BRANCH}`, { headers: { Authorization: "Bearer " + token } });
+  if (!chk.ok) {
+    if (chk.status === 401) { setToken(""); throw new Error("토큰이 올바르지 않습니다."); }
+    throw new Error("파일을 찾지 못했습니다.");
+  }
+  const j = await chk.json();
+  const res = await fetch(api, {
+    method: "DELETE",
+    headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+    body: JSON.stringify({ message: `Delete ${name}`, sha: j.sha, branch: GH_BRANCH }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || ("삭제 실패 " + res.status));
+  }
+}
+
+// 삭제 확인 팝업
+let pendingDelete = null;
+function openDeleteConfirm(name) {
+  pendingDelete = name;
+  el("modal-text").textContent = `"${name}" 데이터를 지우시겠습니까?`;
+  el("modal").classList.remove("hidden");
+}
+function closeModal() { el("modal").classList.add("hidden"); pendingDelete = null; }
+
+async function confirmDelete() {
+  const name = pendingDelete;
+  closeModal();
+  if (!name) return;
+  const status = el("boot-status");
+  try {
+    status.textContent = "삭제 중...";
+    await deleteFile(name);
+    status.textContent = "삭제 완료, 새로고침 중...";
+    setTimeout(() => location.reload(), 800);
+  } catch (err) {
+    status.textContent = "";
+    alert("삭제 실패: " + (err.message || err));
+  }
+}
+
+// 업로드 처리
+async function handleUpload(fileList) {
+  const files = Array.from(fileList).filter(f => /\.(xlsx|xls|csv)$/i.test(f.name));
+  if (files.length === 0) return;
+  const status = el("boot-status");
+  try {
+    for (const f of files) {
+      status.textContent = `${f.name} 업로드 중...`;
+      await uploadFile(f);
+    }
+    status.textContent = "업로드 완료, 새로고침 중...";
+    setTimeout(() => location.reload(), 800);
+  } catch (err) {
+    status.textContent = "";
+    alert("업로드 실패: " + (err.message || err));
+  }
 }
 
 /* ===== 메인 ===== */
@@ -391,4 +527,23 @@ async function boot() {
   }
 }
 
+/* ===== UI 이벤트 연결 (업로드 버튼, 삭제 모달) ===== */
+function wireControls() {
+  // 파일불러오기 버튼 → 숨은 input 클릭
+  const upBtn = el("upload-btn");
+  const upInput = el("upload-input");
+  if (upBtn && upInput) {
+    upBtn.addEventListener("click", () => upInput.click());
+    upInput.addEventListener("change", e => {
+      if (e.target.files.length) handleUpload(e.target.files);
+      e.target.value = ""; // 같은 파일 재선택 가능하게
+    });
+  }
+  // 삭제 모달 예/아니오
+  const yes = el("modal-yes"), no = el("modal-no");
+  if (yes) yes.addEventListener("click", confirmDelete);
+  if (no) no.addEventListener("click", closeModal);
+}
+
+wireControls();
 boot();

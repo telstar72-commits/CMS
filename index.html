@@ -17,9 +17,13 @@
     background:var(--bg); color:var(--ink); line-height:1.5}
   .wrap{max-width:1240px; margin:0 auto; padding:24px 20px 80px}
 
-  header{margin-bottom:22px; display:flex; align-items:baseline; gap:14px; flex-wrap:wrap}
+  header{margin-bottom:22px; display:flex; align-items:center; gap:14px; flex-wrap:wrap}
   h1{font-size:23px; font-weight:800; letter-spacing:-0.02em}
   .boot{font-size:13px; color:var(--sub)}
+  .upload-btn{margin-left:auto; background:var(--accent); color:#fff; border:none; border-radius:8px;
+    padding:10px 20px; font-size:14px; font-weight:700; cursor:pointer; font-family:inherit}
+  .upload-btn:hover{background:#0c3d68}
+  .upload-btn:active{transform:scale(0.98)}
 
   .sec-title{font-size:15px; font-weight:800; margin:28px 0 14px; display:flex; align-items:center; gap:8px}
   .sec-title::before{content:""; width:4px; height:16px; background:var(--accent); border-radius:2px}
@@ -76,10 +80,25 @@
 
   /* 저장 파일 목록 */
   .saved{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:16px 18px}
-  .sf-row{display:flex; align-items:center; gap:8px; font-size:13px; padding:6px 0; border-bottom:1px solid var(--line)}
+  .sf-row{display:flex; align-items:center; gap:8px; font-size:13px; padding:8px 0; border-bottom:0.5px solid var(--line)}
   .sf-row:last-child{border-bottom:none}
+  .sf-icon{flex-shrink:0}
   .sf-name{word-break:break-all}
-  .badge{font-size:11px; font-weight:700; padding:2px 9px; border-radius:20px; background:#e0edf7; color:var(--accent); white-space:nowrap; margin-left:auto}
+  .badge{font-size:11px; font-weight:700; padding:2px 9px; border-radius:20px; background:#e0edf7; color:var(--accent); white-space:nowrap; margin-left:12px}
+  .sf-del{margin-left:auto; background:var(--red); color:#fff; border:none; border-radius:6px;
+    padding:6px 16px; font-size:12.5px; font-weight:700; cursor:pointer; font-family:inherit; white-space:nowrap}
+  .sf-del:hover{background:#b91c1c}
+  .sf-del:active{transform:scale(0.97)}
+
+  .modal-overlay{position:fixed; inset:0; background:rgba(0,0,0,0.45); display:flex; align-items:center; justify-content:center; z-index:100}
+  .modal-box{background:#fff; border-radius:14px; padding:24px; width:min(90%,360px); box-shadow:0 10px 40px rgba(0,0,0,0.2)}
+  .modal-title{font-size:16px; font-weight:800; margin-bottom:10px}
+  .modal-text{font-size:14px; color:var(--ink); margin-bottom:20px; word-break:break-all; line-height:1.5}
+  .modal-btns{display:flex; gap:10px; justify-content:flex-end}
+  .modal-no,.modal-yes{border:none; border-radius:8px; padding:9px 22px; font-size:14px; font-weight:700; cursor:pointer; font-family:inherit}
+  .modal-no{background:#eef2f7; color:var(--sub)}
+  .modal-yes{background:var(--red); color:#fff}
+  .modal-yes:active,.modal-no:active{transform:scale(0.97)}
 
   .empty{color:var(--sub); text-align:center; padding:50px; font-size:14px; background:var(--card); border:1px dashed var(--line); border-radius:14px}
   .hidden{display:none}
@@ -97,6 +116,8 @@
   <header>
     <h1>Cash Flow Monitoring System</h1>
     <span class="boot" id="boot-status">불러오는 중...</span>
+    <button id="upload-btn" class="upload-btn">파일불러오기</button>
+    <input type="file" id="upload-input" accept=".xlsx,.xls,.csv" multiple style="display:none">
   </header>
 
   <div id="empty-note" class="empty hidden">
@@ -150,6 +171,17 @@
     <div class="sec-title">저장된 데이터 파일 <span class="muted" id="saved-count"></span></div>
     <div class="saved" id="saved-list"></div>
 
+  </div>
+</div>
+
+<div id="modal" class="modal-overlay hidden">
+  <div class="modal-box">
+    <div class="modal-title">데이터 삭제</div>
+    <div class="modal-text" id="modal-text">데이터를 지우시겠습니까?</div>
+    <div class="modal-btns">
+      <button class="modal-no" id="modal-no">아니오</button>
+      <button class="modal-yes" id="modal-yes">예</button>
+    </div>
   </div>
 </div>
 
