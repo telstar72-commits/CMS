@@ -142,8 +142,8 @@ function fileSortNum(name) {
 
 /* ===== 데이터 로드 (GitHub data 폴더 자동) ===== */
 async function fetchDataFolder() {
-  const api = `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${GH_DATA_DIR}?ref=${GH_BRANCH}`;
-  const res = await fetch(api);
+  const api = `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${GH_DATA_DIR}?ref=${GH_BRANCH}&t=${Date.now()}`;
+  const res = await fetch(api, { cache: "no-store", headers: { "Cache-Control": "no-cache" } });
   if (!res.ok) {
     if (res.status === 404) return [];
     throw new Error("GitHub 응답 오류 " + res.status);
@@ -422,11 +422,22 @@ async function confirmDelete() {
   try {
     status.textContent = "삭제 중...";
     await deleteFile(name);
-    status.textContent = "삭제 완료, 새로고침 중...";
-    setTimeout(() => location.reload(), 800);
+    // 화면에서 즉시 제거 (GitHub 캐시 갱신을 기다리지 않음)
+    currentFiles = currentFiles.filter(f => f.name !== name);
+    renderFileList(currentFiles);
+    status.textContent = "삭제 완료";
+    // 전체 지표 갱신을 위해 잠시 후 새로고침 (GitHub 캐시 반영 시간 확보)
+    setTimeout(() => location.reload(), 1500);
   } catch (err) {
     status.textContent = "";
-    alert("삭제 실패: " + (err.message || err));
+    // 이미 없는 파일이면 목록에서만 제거
+    if (String(err.message).includes("Not Found") || String(err.message).includes("찾지")) {
+      currentFiles = currentFiles.filter(f => f.name !== name);
+      renderFileList(currentFiles);
+      status.textContent = "이미 삭제된 파일입니다";
+    } else {
+      alert("삭제 실패: " + (err.message || err));
+    }
   }
 }
 
@@ -441,7 +452,7 @@ async function handleUpload(fileList) {
       await uploadFile(f);
     }
     status.textContent = "업로드 완료, 새로고침 중...";
-    setTimeout(() => location.reload(), 800);
+    setTimeout(() => location.reload(), 1500);
   } catch (err) {
     status.textContent = "";
     alert("업로드 실패: " + (err.message || err));
