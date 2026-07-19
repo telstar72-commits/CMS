@@ -523,18 +523,26 @@ async function boot() {
       repByMonth[k] = byMonth[k][byMonth[k].length - 1].data;
     }
 
-    // 성과(실제수금) = 직전 '데이터 있는 달' 대비 발행칸에서 빠진 금액
+    // 이전 달(YYYY-MM) 키 구하기
+    const prevMonthKey = (ym) => {
+      let [y, m] = ym.split("-").map(Number);
+      m -= 1; if (m === 0) { m = 12; y -= 1; }
+      return `${y}-${String(m).padStart(2, "0")}`;
+    };
+
+    // 목표 = 지난달 발행액, 성과 = 이번달 수금액(지난달 대비 발행칸에서 빠진 금액)
+    // 지난달 데이터가 없으면 목표/성과 모두 비움
     const monthRows = [];
-    let prevRep = null;
     for (const k of axis) {
-      const rep = repByMonth[k] || null;
+      const rep = repByMonth[k] || null;               // 이번 달 데이터
+      const prevKey = prevMonthKey(k);
+      const prevRep = repByMonth[prevKey] || null;      // 지난 달 데이터
       let target = null, perf = null;
-      if (rep) {
-        target = rep.totals.wait; // 세금계산서 발행액 = 목표
-        // 성과 = 직전 데이터 있는 달 대비 발행칸에서 빠진 금액
-        // 첫 달(비교대상 없음)은 성과를 null로 둠 (달성율 왜곡 방지)
-        perf = prevRep ? compareByCust(prevRep, rep).total : null;
-        prevRep = rep;
+      if (prevRep) {
+        target = prevRep.totals.wait;                   // 목표 = 지난달 세금계산서 발행액
+        if (rep) {
+          perf = compareByCust(prevRep, rep).total;     // 성과 = 지난달→이번달 수금
+        }
       }
       monthRows.push({ month: k, target, perf });
     }
